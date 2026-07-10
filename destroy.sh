@@ -4,10 +4,11 @@
 # ================================================================================
 #
 # Purpose:
-#   Tears down the Resume Scoring application stack deployed by apply.sh.
+#   Tears down the Cloud Ops Copilot stack deployed by apply.sh.
 #
 #   Destroys all backend infrastructure provisioned by Terraform, including:
-#     - Lambda functions, API Gateway, Cognito, DynamoDB, SQS, and S3 buckets.
+#     - Bedrock Agent + action groups, tool Lambdas, API Gateway, Cognito,
+#       DynamoDB, SQS, and S3 buckets.
 #
 # ================================================================================
 # GLOBAL CONFIGURATION
@@ -59,10 +60,10 @@ cd 01-core || {
 
 terraform init
 terraform destroy -auto-approve \
-  -var="bedrock_model_id=${BEDROCK_MODEL_ID}" \
-  -var="google_client_id=${AWS_ASKMIKE_GOOGLE_CLIENT_ID:-}" \
-  -var="google_client_secret=${AWS_ASKMIKE_GOOGLE_CLIENT_SECRET:-}" \
-  -var="custom_domain=${AWS_ASKMIKE_CUSTOM_DOMAIN:-}"
+  -var="agent_foundation_model=${BEDROCK_MODEL_ID}" \
+  -var="google_client_id=${AWS_AGENTOPS_GOOGLE_CLIENT_ID:-}" \
+  -var="google_client_secret=${AWS_AGENTOPS_GOOGLE_CLIENT_SECRET:-}" \
+  -var="custom_domain=${AWS_AGENTOPS_CUSTOM_DOMAIN:-}"
 
 cd .. || exit 1
 

@@ -55,33 +55,27 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb_attach" {
 }
 
 # ================================================================================
-# S3 access — user data and corpus
-# The worker Lambda reads corpus/ at query time; both Lambdas write user data
+# S3 access — user data only (question/answer/trace payloads). No corpus: the
+# agent owns retrieval, so there is nothing to read under corpus/ anymore.
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_s3" {
-  name = "rag-app-s3-${random_id.bucket_suffix.hex}"
+  name = "agentops-s3-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "BackendBucketList"
-        Effect = "Allow"
-        Action = ["s3:ListBucket"]
+        Sid      = "BackendBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
         Resource = aws_s3_bucket.backend.arn
       },
       {
-        Sid    = "UserDataAccess"
-        Effect = "Allow"
-        Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Sid      = "UserDataAccess"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${aws_s3_bucket.backend.arn}/users/*"
-      },
-      {
-        Sid    = "CorpusReadAccess"
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
-        Resource = "${aws_s3_bucket.backend.arn}/corpus/*"
       }
     ]
   })
@@ -126,19 +120,23 @@ resource "aws_iam_role_policy_attachment" "lambda_sqs_attach" {
 }
 
 # ================================================================================
-# Bedrock access — Titan embeddings + Haiku
+# Bedrock access — the worker invokes the AGENT (not a raw model). InvokeAgent on
+# the agent + its alias is all it needs; the agent's own role calls the model.
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_bedrock" {
-  name = "rag-app-bedrock-${random_id.bucket_suffix.hex}"
+  name = "agentops-bedrock-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "BedrockInvoke"
+      Sid    = "InvokeAgent"
       Effect = "Allow"
-      Action = ["bedrock:InvokeModel"]
-      Resource = "*"
+      Action = ["bedrock:InvokeAgent"]
+      Resource = [
+        aws_bedrockagent_agent.ops.agent_arn,
+        aws_bedrockagent_agent_alias.live.agent_alias_arn,
+      ]
     }]
   })
 }

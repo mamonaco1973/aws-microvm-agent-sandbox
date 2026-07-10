@@ -27,7 +27,7 @@ export function renderHistory(queries) {
     appendUserMessage(q.question || "");
 
     if (q.status === "complete") {
-      appendAssistantMessage(q.answer || "", q.sources || [], q.query_id);
+      appendAssistantMessage(q.answer || "", q.trace || [], q.query_id);
     } else if (q.status === "failed") {
       appendErrorMessage("This query failed. Please try again.", q.query_id);
     } else {
@@ -111,7 +111,7 @@ function appendThinkingMessage(queryId) {
   log.appendChild(row);
 }
 
-function appendAssistantMessage(text, sources, queryId) {
+function appendAssistantMessage(text, trace, queryId) {
   const log   = document.getElementById("chat-log");
   const existing = queryId
     ? log.querySelector(`[data-query-id="${queryId}"]`)
@@ -136,9 +136,9 @@ function appendAssistantMessage(text, sources, queryId) {
   }
   bubble.appendChild(body);
 
-  // Sources section
-  if (sources && sources.length > 0) {
-    bubble.appendChild(_buildSources(sources));
+  // Agent trace section (reasoning + tool calls) — the star of the demo
+  if (trace && trace.length > 0) {
+    bubble.appendChild(_buildTrace(trace));
   }
 
   row.innerHTML = "";
@@ -171,12 +171,56 @@ function appendErrorMessage(text, queryId) {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* Sources widget                                                                */
+/* Agent trace widget                                                            */
+/* Renders the agent's reasoning + tool calls in a collapsible panel. This is    */
+/* what makes the demo *teach*: you see the agent decide, call a tool, read the   */
+/* result, and answer — the "🔧 called get_costs → 🔧 called list_resources" story.*/
 /* ---------------------------------------------------------------------------- */
 
-function _buildSources(sources) {
+const _TRACE_ICONS = {
+  reasoning:   "🧠",
+  tool_call:   "🔧",
+  tool_result: "📄",
+  answer:      "✍️",
+};
+
+function _esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function _traceStepHtml(step) {
+  const icon = _TRACE_ICONS[step.type] || "•";
+  if (step.type === "reasoning") {
+    return `<div class="trace-step"><span class="trace-ic">${icon}</span>
+      <span class="trace-reason">${_esc(step.text)}</span></div>`;
+  }
+  if (step.type === "tool_call") {
+    const args = step.input && Object.keys(step.input).length
+      ? "(" + Object.entries(step.input).map(([k, v]) => `${_esc(k)}=${_esc(v)}`).join(", ") + ")"
+      : "()";
+    return `<div class="trace-step"><span class="trace-ic">${icon}</span>
+      called <code class="trace-tool">${_esc(step.tool)}</code>${_esc(args)}</div>`;
+  }
+  if (step.type === "tool_result") {
+    return `<div class="trace-step"><span class="trace-ic">${icon}</span>
+      <span class="trace-result">${_esc(step.text)}</span></div>`;
+  }
+  if (step.type === "answer") {
+    return `<div class="trace-step"><span class="trace-ic">${icon}</span>
+      <span class="trace-answer">answered</span></div>`;
+  }
+  return "";
+}
+
+function _buildTrace(trace) {
   const section = document.createElement("div");
   section.className = "sources-section";
+
+  const toolCalls = trace.filter(s => s.type === "tool_call").length;
+  const summary = toolCalls
+    ? `agent trace · ${toolCalls} tool call${toolCalls !== 1 ? "s" : ""}`
+    : "agent trace";
 
   const toggle = document.createElement("button");
   toggle.className = "sources-toggle";
@@ -186,22 +230,11 @@ function _buildSources(sources) {
          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="9 18 15 12 9 6"/>
     </svg>
-    ${sources.length} source${sources.length !== 1 ? "s" : ""}`;
+    ${summary}`;
 
   const list = document.createElement("div");
-  list.className = "sources-list";
-
-  for (const src of sources) {
-    const a = document.createElement("a");
-    a.className = "source-link";
-    a.href      = src.source_url || "#";
-    a.target    = "_blank";
-    a.rel       = "noopener noreferrer";
-
-    const label = src.title || src.file || src.repo || src.source_url || "source";
-    a.textContent = `↗ ${label}`;
-    list.appendChild(a);
-  }
+  list.className = "sources-list trace-list";
+  list.innerHTML = trace.map(_traceStepHtml).join("");
 
   toggle.addEventListener("click", () => {
     const open = list.classList.toggle("visible");
@@ -239,7 +272,7 @@ function _startPolling(convId, queryId, onComplete) {
       if (q.status === "complete") {
         _stopPolling(queryId);
         delete _cancelHandlers[queryId];
-        appendAssistantMessage(q.answer || "", q.sources || [], queryId);
+        appendAssistantMessage(q.answer || "", q.trace || [], queryId);
         scrollToBottom();
         if (onComplete) onComplete(q);
       } else if (q.status === "failed") {

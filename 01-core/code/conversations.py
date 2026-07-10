@@ -98,15 +98,6 @@ def _read_s3(key):
     return result["Body"].read().decode("utf-8")
 
 
-def _corpus_exists():
-    """Return True only if the corpus has been ingested into S3."""
-    try:
-        s3.head_object(Bucket=BACKEND_BUCKET, Key="corpus/chunks.json")
-        return True
-    except Exception:
-        return False
-
-
 def _check_token_budget(user_id):
     """Return (tokens_used, token_limit, over_budget)."""
     item = table.get_item(
@@ -194,7 +185,7 @@ def delete_conversation(event):
         table.delete_item(Key={"pk": pk, "sk": item["sk"]})
 
         # Best-effort S3 cleanup for each key pointer stored on the record
-        for attr in ("question_s3_key", "answer_s3_key", "sources_s3_key"):
+        for attr in ("question_s3_key", "answer_s3_key", "trace_s3_key"):
             key = item.get(attr)
             if key:
                 try:
@@ -229,10 +220,6 @@ def submit_query(event):
     if not question:
         return json_response(400, {"error": "question is required"})
 
-    # Reject immediately if the corpus has not been ingested yet
-    if not _corpus_exists():
-        return json_response(503, {"error": "corpus_not_ready"})
-
     # Enforce token budget before accepting the query
     used, limit, over = _check_token_budget(user_id)
     if over:
@@ -254,7 +241,7 @@ def submit_query(event):
         "query_id":         query_id,
         "question_s3_key":  question_key,
         "answer_s3_key":    None,
-        "sources_s3_key":   None,
+        "trace_s3_key":     None,
         "status":           "pending",
         "tokens_used":      0,
         "created_at":       now,
@@ -371,10 +358,13 @@ def get_query(event):
 # --------------------------------------------------------------------------------
 
 def _hydrate_query(item):
-    """Resolve S3 pointers on a DynamoDB query item to inline text."""
+    """Resolve S3 pointers on a DynamoDB query item to inline text.
+
+    `trace` is the agent's reasoning/tool-call trace (what replaced RAG sources).
+    """
     question = None
     answer   = None
-    sources  = None
+    trace    = None
 
     if item.get("question_s3_key"):
         try:
@@ -388,11 +378,11 @@ def _hydrate_query(item):
         except Exception:
             answer = None
 
-    if item.get("sources_s3_key"):
+    if item.get("trace_s3_key"):
         try:
-            sources = json.loads(_read_s3(item["sources_s3_key"]))
+            trace = json.loads(_read_s3(item["trace_s3_key"]))
         except Exception:
-            sources = []
+            trace = []
 
     return {
         "query_id":    item.get("query_id") or item["sk"].split("#", 2)[-1],
@@ -400,7 +390,7 @@ def _hydrate_query(item):
         "status":      item.get("status"),
         "question":    question,
         "answer":      answer,
-        "sources":     sources,
+        "trace":       trace,
         "tokens_used": int(item.get("tokens_used") or 0),
         "created_at":  item.get("created_at"),
         "updated_at":  item.get("updated_at"),

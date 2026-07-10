@@ -29,18 +29,20 @@ variable "region" {
 }
 
 # ================================================================================
-# Bedrock model — Haiku for low-cost stateful RAG responses
+# Agent foundation model — the model the Bedrock Agent reasons with. Must be a
+# model/inference-profile that supports Bedrock Agents in this region. Change via
+# tfvars if the default isn't enabled for your account.
 # ================================================================================
 
-variable "bedrock_model_id" {
-  description = "Bedrock model ID used by the worker Lambda for RAG answers"
+variable "agent_foundation_model" {
+  description = "Foundation model (or inference-profile id) the Bedrock Agent uses"
   type        = string
   default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
 # ================================================================================
 # Google OAuth — optional; set to enable Google sign-in via Cognito IdP
-# Populated from AWS_ASKMIKE_GOOGLE_CLIENT_ID / AWS_ASKMIKE_GOOGLE_CLIENT_SECRET
+# Populated from AWS_AGENTOPS_GOOGLE_CLIENT_ID / AWS_AGENTOPS_GOOGLE_CLIENT_SECRET
 # ================================================================================
 
 variable "google_client_id" {

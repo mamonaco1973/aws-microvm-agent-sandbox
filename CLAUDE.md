@@ -1,109 +1,104 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working
-with code in this repository.
+Guidance for working in **aws-agent-ops** (product name: **Cloud Ops Copilot**).
 
-## What This App Does
+## What This App Is
 
-Ask Mike -- a ChatGPT-style AI assistant grounded in Mike Monaco's cloud
-reference architecture portfolio, YouTube channel, and open-source GitHub
-repos. Visitors can ask questions about architectures, compare patterns
-across cloud providers, or explore how any of the 100+ published projects
-were built. Answers are grounded in GitHub READMEs, YouTube video
-descriptions, and a small set of background files. Conversations are
-stateful (last 5 Q&A pairs injected as history per query). Token usage is
-tracked per user in DynamoDB with a 500K lifetime cap.
+A ChatGPT-style assistant backed by an **Amazon Bedrock Agent** that inspects and
+operates an AWS account through tools — "what's running and what's it costing
+me?", "stop the dev box" (with confirmation), "any alarms firing?". It is a demo
+of **Bedrock Agents (Option 2)**: tool use, multi-step orchestration, and managed
+session + long-term memory. It was forked from the `aws-ask-mike` RAG app and
+keeps that app's async spine; only the "brain" changed.
+
+There is **no RAG** here — no corpus, embeddings, or vector search. Retrieval,
+prompt assembly, tool orchestration, and conversation memory all live inside the
+agent. The worker just calls `invoke_agent` and stores the result.
 
 ## Architecture
 
     01-core/           # Backend: Terraform + Python Lambda source
-      code/            # Lambda source files
-    02-webapp/         # Frontend: vanilla JS SPA deployed to S3
-    03-ingest/         # Corpus ingestion — crawl GitHub + YouTube, build corpus
+      code/            # Lambda source (API, worker, tool handlers)
+    02-webapp/         # Frontend: vanilla-JS SPA on S3 + CloudFront
 
 ### Request flow
 
-1. User types a question → POST /conversations/{conv_id}/queries → API Lambda
-2. API Lambda writes question.txt to S3, creates QUERY# record (status=pending),
-   enqueues SQS message
-3. Worker Lambda (SQS trigger):
-   - Loads corpus/embeddings.npy + corpus/chunks.json from S3
-   - Embeds query via Bedrock Titan Embeddings v2
-   - Cosine similarity → top-20 chunks (with per-repo coverage guarantee for named repos)
-   - Fetches last 5 completed Q&A pairs from DynamoDB/S3 as history
-   - Calls Bedrock Haiku with system prompt + history + context + question
-   - Writes answer.txt + sources.json to S3
-   - Updates QUERY# record (status=complete) and USER#USAGE tokens
-4. Frontend polls GET /conversations/{conv_id}/queries/{query_id} every 2s
-5. On completion, renders answer with collapsible sources section
+1. User asks a question → `POST /conversations/{id}/queries` → API Lambda writes
+   `question.txt` to S3, creates a `QUERY#` record (`pending`), enqueues SQS.
+2. Worker Lambda (SQS trigger) calls **`invoke_agent`** with
+   `sessionId=conv_id` (short-term memory), `memoryId=user_id` (long-term
+   memory), `enableTrace=True`.
+3. It streams the completion → answer text + a **trace** (reasoning + tool
+   calls), sums the agent's token usage, writes `answer.txt` + `trace.json`,
+   marks the query `complete`.
+4. Frontend polls `GET …/queries/{query_id}` every 2s; on completion renders the
+   answer with a **collapsible trace viewer** (the RAG "sources" widget,
+   repurposed).
 
-### Lambda files
+### The agent (agent.tf)
 
-- `handler.py`       — API router
-- `conversations.py` — conversation + query CRUD; token budget enforcement
-- `users.py`         — registration (USER_CAP=100) + GET /usage
-- `worker.py`        — RAG pipeline (embed → retrieve → history → Haiku → store)
+- `aws_bedrockagent_agent` — foundation model + `instruction` (system prompt) +
+  `memory_configuration` (SESSION_SUMMARY, 30-day) → cross-session memory.
+- Four **action groups**, one per tool, each pointing at its own Lambda:
+  `list_resources`, `get_costs`, `get_alarms`, `control_instance`.
+- `aws_bedrockagent_agent_alias` "live" — the stable endpoint the worker calls;
+  `depends_on` all action groups so "prepare" bakes the tools into the version.
+
+### Tools = the agent's hands (tools.tf + code/tool_*.py)
+
+One Lambda per tool, each under its **own least-privilege role** — the agent can
+only do what a tool's IAM allows:
+
+- `tool_list_resources` — `ec2:DescribeInstances` (read)
+- `tool_get_costs` — `ce:GetCostAndUsage` (read)
+- `tool_get_alarms` — `cloudwatch:DescribeAlarms` (read)
+- `tool_control_instance` — `ec2:Start/Stop/DescribeInstances` (**only** mutator)
+
+Bedrock invokes them via a resource-based `aws_lambda_permission` scoped to the
+agent's ARN. `tool_common.py` hides the Bedrock action-group event/response
+envelope.
+
+### Lambda files (code/)
+
+- `handler.py`       — API router (register, usage, conversations, queries)
+- `conversations.py` — conversation + query CRUD; token budget; `trace` hydration
+- `users.py`         — registration (USER_CAP) + `GET /usage`
+- `worker.py`        — SQS worker: `invoke_agent` + trace capture + persistence
+- `tool_*.py`        — the four action-group handlers
+- `tool_common.py`   — shared event-parse / response-format helpers
 
 ### Data model (DynamoDB single-table)
 
-- `pk=USER#<id>`, `sk=USER#USAGE`          — tokens_used, token_limit (500K)
-- `pk=USER#<id>`, `sk=CONV#<id>`           — title, created_at, updated_at
-- `pk=USER#<id>`, `sk=QUERY#<conv>#<id>`   — status, S3 key pointers, tokens_used
-
-### S3 layout
-
-    corpus/chunks.json                                — chunk metadata array
-    corpus/embeddings.npy                             — float32 (n_chunks, 1024)
-    users/USER#<id>/conversations/CONV#<c>/QUERY#<q>/question.txt
-    users/USER#<id>/conversations/CONV#<c>/QUERY#<q>/answer.txt
-    users/USER#<id>/conversations/CONV#<c>/QUERY#<q>/sources.json
-
-### Key Terraform variables (01-core/variables.tf)
-
-- `region`           — default us-east-1
-- `bedrock_model_id` — default us.anthropic.claude-haiku-4-5-20251001-v1:0
-
-### Authentication
-
-Cognito User Pool with Hosted UI, OAuth2 authorization code flow. All API
-routes require JWT Bearer token.
+- `pk=USER#<id>`, `sk=USER#USAGE`        — tokens_used, token_limit
+- `pk=USER#<id>`, `sk=CONV#<id>`         — title, timestamps
+- `pk=USER#<id>`, `sk=QUERY#<conv>#<id>` — status, S3 pointers (`answer_s3_key`,
+  `trace_s3_key`), tokens_used
 
 ## Deployment
 
 ```bash
 ./apply.sh      # full deploy
 ./destroy.sh    # tear down
-./check_env.sh  # validate tools and credentials
+./check_env.sh  # validate tooling, creds, Bedrock model access
 ```
 
-Python deps install into the Lambda source dir so Terraform can zip them:
+The agent's foundation model comes from `bedrock-config.sh` (`BEDROCK_MODEL_ID`),
+passed to Terraform as `agent_foundation_model` and probed by `check_env.sh`.
 
-```bash
-cd 01-core/code && pip install -r requirements.txt -t .
-```
+## Gotchas that will bite
 
-## Corpus ingestion
-
-Runs automatically as stage 3 of `apply.sh`. To run manually:
-
-```bash
-cd 03-ingest
-pip install -r requirements.txt
-python ingest.py --bucket <backend-bucket-name>
-```
-
-The ingest script loads content from three sources:
-- Local `.txt` files in `03-ingest/` — resume, technical skills, YouTube
-  channel overview, education, and contact info
-- All public `mamonaco1973/*` GitHub repos (README.md and CLAUDE.md only) —
-  primary corpus source for reference architecture content
-- YouTube video descriptions from Mike's Cloud Solutions channel
-
-All content is embedded via Bedrock Titan and written as `corpus/chunks.json`
-and `corpus/embeddings.npy` to the backend S3 bucket.
+- **Model access + Agents support** — the `agent_foundation_model` must be
+  enabled for your account AND support Bedrock Agents. If apply fails on the
+  agent, switch the model in `bedrock-config.sh`.
+- **Provider version** — Bedrock Agent + `memory_configuration` need AWS provider
+  ≥ 5.70 (pinned in `versions.tf`).
+- **Alias vs. action groups** — the alias must `depends_on` every action group or
+  it ships an agent with no tools. If you add a tool, re-apply.
+- **Long-term memory** — session summaries are written when a session ends /
+  idles out; cross-session recall isn't instant within one open conversation.
+- **Trace parsing is best-effort** — the agent trace schema is deep; `worker.py`
+  parses defensively and must never fail a query on a trace miss.
 
 ## Code Commenting Standards
 
-See the project-level CLAUDE.md in the workspace root for full standards.
-Short version: comment the *why*, not the *what*. Section headers for
-logical blocks, inline comments only for non-obvious intent.
+See the workspace-root `.claude/CLAUDE.md`: comment the *why*, not the *what*.

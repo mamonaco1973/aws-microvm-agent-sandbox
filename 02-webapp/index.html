@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ask Mike</title>
+  <title>Cloud Ops Copilot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -73,7 +73,7 @@
           </svg>
           Open LinkedIn
         </a>
-        <a href="https://github.com/mamonaco1973/aws-ask-mike" target="_blank" rel="noopener"
+        <a href="https://github.com/mamonaco1973/aws-agent-ops" target="_blank" rel="noopener"
            class="sidebar-link-btn sidebar-link-btn--build" title="Build this application">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -136,24 +136,22 @@
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-        <span id="mobile-topbar-title">Ask Mike</span>
+        <span id="mobile-topbar-title">Cloud Ops Copilot</span>
       </div>
 
       <!-- Empty state — shown when no conversation is selected -->
       <div id="empty-state">
-        <div class="empty-logo">Ask Mike</div>
+        <div class="empty-logo">Cloud Ops Copilot</div>
         <p class="empty-tagline">
-          Explore Mike's cloud reference architectures, YouTube channel, and open-source portfolio.
+          A Bedrock Agent that inspects and operates your AWS account in plain English — expand the trace to watch it decide.
         </p>
         <div class="starter-grid">
-          <button class="starter-btn" data-q="Compare the auto scaling reference architectures: oci-instance-pool, aws-autoscaling, azure-vmss, and gcp-mig. How do they differ in design, components, and approach?">Compare autoscaling reference architectures</button>
-          <button class="starter-btn" data-q="Compare the Kubernetes reference architectures across AWS, GCP, Azure, and OCI. How do they differ in design, components, and approach?">Compare Kubernetes reference architectures</button>
-          <button class="starter-btn" data-q="What is Mike's RStudio cluster architecture? How does it use shared storage, identity, and autoscaling?">What is Mike's RStudio cluster architecture?</button>
-          <button class="starter-btn" data-q="Give me a complete list of all GitHub repos in Mike's portfolio.">What's in Mike's GitHub portfolio?</button>
-          <button class="starter-btn" data-q="Give me a complete list of all videos on Mike's YouTube channel.">What's on Mike's YouTube channel?</button>
-          <button class="starter-btn" data-q="What AI and machine learning projects has Mike built? Tell me about his RAG demos, Bedrock usage, and AI-enabled architectures.">What AI projects has Mike built?</button>
-          <button class="starter-btn" data-q="How was this Ask Mike application built? What AWS services does it use and how does the RAG pipeline work?">How was this application built?</button>
-          <button class="starter-btn" data-q="Does Mike have any PostgreSQL reference architectures? How does he deploy Postgres in the cloud across AWS, GCP, Azure, or OCI?">Can you help me deploy Postgres in the cloud?</button>
+          <button class="starter-btn" data-q="What EC2 instances are running and what's my month-to-date spend?">What's running and what's it costing me?</button>
+          <button class="starter-btn" data-q="List all my EC2 instances and their state.">List my EC2 instances</button>
+          <button class="starter-btn" data-q="Break down my month-to-date AWS spend by service.">Break down my spend by service</button>
+          <button class="starter-btn" data-q="Are any of my CloudWatch alarms currently in ALARM?">Any alarms firing?</button>
+          <button class="starter-btn" data-q="Remember that my monthly budget threshold is $50. Am I over it yet?">Remember my $50 budget — am I over?</button>
+          <button class="starter-btn" data-q="Which of my instances are stopped? I might want to clean them up.">Which instances are stopped?</button>
         </div>
       </div>
 
@@ -196,10 +194,9 @@
 
       <div class="auth-preview-panel">
         <div class="auth-preview-inner">
-          <img src="/avatar.png" alt="Mike Monaco" class="auth-avatar">
-          <div class="auth-preview-logo">Ask Mike</div>
+          <div class="auth-preview-logo">Cloud Ops Copilot</div>
           <p class="auth-preview-tagline">
-            100+ cloud reference architectures across AWS, GCP, Azure, and OCI.
+            A Bedrock Agent that operates your AWS account in plain English.
           </p>
           <ul class="auth-preview-features">
             <li>
@@ -208,7 +205,7 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Explore any reference architecture
+              Ask about instances, costs, and alarms
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -216,7 +213,7 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Compare patterns across cloud providers
+              Start or stop instances — with confirmation
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -224,7 +221,7 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Grounded in GitHub repos and YouTube videos
+              Watch the agent's tool-call trace
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -232,51 +229,17 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Powered by AWS Bedrock RAG
+              Remembers context across sessions
             </li>
           </ul>
-
-          <div class="auth-preview-clouds">
-            <div class="cloud-provider-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <text x="20" y="22" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="sans-serif">AWS</text>
-              </svg>
-              <span>AWS</span>
-            </div>
-            <div class="cloud-provider-icon">
-              <!-- GCP: cloud with G -->
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">G</text>
-              </svg>
-              <span>GCP</span>
-            </div>
-            <div class="cloud-provider-icon">
-              <!-- Azure: cloud with A -->
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">Az</text>
-              </svg>
-              <span>Azure</span>
-            </div>
-            <div class="cloud-provider-icon">
-              <!-- OCI: cloud with O -->
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">OCI</text>
-              </svg>
-              <span>OCI</span>
-            </div>
-          </div>
         </div>
       </div>
 
       <div class="auth-form-panel">
-        <h2>Ask Mike Monaco</h2>
+        <h2>Cloud Ops Copilot</h2>
         <p class="auth-form-desc">
-          Sign in to explore Mike's cloud reference architectures, YouTube
-          channel, and open-source portfolio — powered by AWS Bedrock RAG.
+          Sign in to chat with a Bedrock Agent that can inspect your EC2
+          instances, costs, and alarms — and act on them, with your confirmation.
         </p>
         <div class="auth-form-actions">
           <button type="button" id="btn-cognito-sign-in">Sign In</button>

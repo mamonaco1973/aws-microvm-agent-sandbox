@@ -1,6 +1,6 @@
 /* ============================================================================ */
 /* api.js                                                                       */
-/* HTTP client for the RAG demo backend API.                                   */
+/* HTTP client for the Cloud Ops Copilot backend API.                          */
 /* All requests include the Cognito JWT Bearer token from localStorage.        */
 /* ============================================================================ */
 

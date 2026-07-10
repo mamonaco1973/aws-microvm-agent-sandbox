@@ -1,23 +1,10 @@
 # ================================================================================
-# numpy Lambda layer
-# Installed separately because numpy's source-tree guard prevents it from
-# loading when placed in the same flat directory as the function handler.
-# ================================================================================
-
-resource "aws_lambda_layer_version" "numpy" {
-  filename            = data.archive_file.numpy_layer_zip.output_path
-  source_code_hash    = data.archive_file.numpy_layer_zip.output_base64sha256
-  layer_name          = "numpy-${random_id.bucket_suffix.hex}"
-  compatible_runtimes = ["python3.11"]
-}
-
-# ================================================================================
 # API Lambda function
-# Handles all synchronous API Gateway requests
+# Handles all synchronous API Gateway requests (conversations, queries, usage)
 # ================================================================================
 
 resource "aws_lambda_function" "api" {
-  function_name = "rag-api-${random_id.bucket_suffix.hex}"
+  function_name = "agentops-api-${random_id.bucket_suffix.hex}"
 
   filename         = data.archive_file.lambdas_zip.output_path
   source_code_hash = data.archive_file.lambdas_zip.output_base64sha256
@@ -48,11 +35,13 @@ resource "aws_cloudwatch_log_group" "api_logs" {
 
 # ================================================================================
 # Worker Lambda function
-# SQS-triggered RAG pipeline — embed, retrieve, call Haiku, store result
+# SQS-triggered — hands each question to the Bedrock Agent (invoke_agent),
+# captures the answer + reasoning/tool-call trace, and stores the result.
+# No numpy/embeddings here: the agent owns retrieval/orchestration/memory.
 # ================================================================================
 
 resource "aws_lambda_function" "worker" {
-  function_name = "rag-worker-${random_id.bucket_suffix.hex}"
+  function_name = "agentops-worker-${random_id.bucket_suffix.hex}"
 
   filename         = data.archive_file.lambdas_zip.output_path
   source_code_hash = data.archive_file.lambdas_zip.output_base64sha256
@@ -62,15 +51,15 @@ resource "aws_lambda_function" "worker" {
 
   role        = aws_iam_role.lambda_exec.arn
   timeout     = 300
-  memory_size = 512
-  layers      = [aws_lambda_layer_version.numpy.arn]
+  memory_size = 256
 
   environment {
     variables = {
       TABLE_NAME          = aws_dynamodb_table.app_table.name
       BACKEND_BUCKET_NAME = aws_s3_bucket.backend.bucket
       QUERY_QUEUE_URL     = aws_sqs_queue.query_requests.id
-      BEDROCK_MODEL_ID    = var.bedrock_model_id
+      AGENT_ID            = aws_bedrockagent_agent.ops.agent_id
+      AGENT_ALIAS_ID      = aws_bedrockagent_agent_alias.live.agent_alias_id
     }
   }
 }

@@ -450,6 +450,33 @@ ul { list-style: none; }
 }
 .source-link:hover { color: var(--text-primary); text-decoration: underline; }
 
+/* ---- Agent trace steps (reasoning + tool calls) ---- */
+.trace-list { gap: 7px; }
+.trace-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.trace-ic { flex-shrink: 0; }
+.trace-tool {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-primary);
+  background: var(--bg-input, rgba(127,127,127,0.12));
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.trace-reason { font-style: italic; }
+.trace-result {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.85;
+}
+.trace-answer { color: var(--text-primary); }
+
 /* ---- Input bar ---- */
 
 #input-bar {
