@@ -1,0 +1,81 @@
+Mike Monaco — Technical Skills Inventory
+=========================================
+
+CLOUD PLATFORMS
+---------------
+Primary: AWS
+Multi-cloud: GCP, Azure, OCI — production-quality reference architectures
+on all four providers
+
+AWS SERVICES
+------------
+Compute:       EC2, ECS/Fargate, EKS, Lambda
+Networking:    VPC, ELB, API Gateway
+Storage:       S3, EFS, FSx for NetApp ONTAP, FSx for Lustre,
+               Storage Gateway
+Database:      RDS, DynamoDB
+Messaging:     SQS, SNS, EventBridge
+Security:      IAM, KMS
+Monitoring:    CloudWatch
+Migration:     AWS MGN (Application Migration Service), DataSync
+
+INFRASTRUCTURE AS CODE AND AUTOMATION
+--------------------------------------
+- Terraform (primary IaC tool across all cloud providers)
+- CloudFormation
+- Packer (custom image pipelines)
+- GitHub Actions, GitLab CI/CD
+- Python with boto3
+- AWS CLI, Bash, PowerShell
+
+CONTAINERS AND ORCHESTRATION
+-----------------------------
+- Docker
+- Kubernetes
+- Amazon EKS
+- ECS/Fargate
+- Containerized SAS 9.4 on EKS and AKS
+
+SYSTEMS AND IDENTITY
+--------------------
+- Linux: RHEL, Ubuntu (primary administration platform)
+- Windows Server
+- Active Directory (on-premises, AWS Managed AD, Azure AD/Entra ID)
+- SSSD, Centrify (Linux-to-AD domain join)
+- Okta (SAML/OIDC federation)
+
+DATA AND ANALYTICS PLATFORMS
+-----------------------------
+- SAS 9.4, SAS Grid Manager, SAS Studio, SAS Enterprise Guide
+- SAS Analytics Pro for AWS
+- SAS Macro language, Base SAS PROCs
+- Posit Workbench, Posit Connect, Posit Package Manager
+- RStudio (on-premises and cloud-hosted)
+
+STORAGE AND DR TECHNOLOGIES
+----------------------------
+- FSx for NetApp ONTAP with SnapMirror cross-region replication
+- FSx for Lustre
+- AWS Storage Gateway
+- Nasuni
+- Dell EMC Isilon (on-premises, migration source)
+- NetApp ONTAP multi-protocol (NFS + SMB simultaneously)
+
+AI AND MODERN WORKLOADS
+------------------------
+- Cloud-native AI services (AWS Bedrock, GCP Vertex AI, Azure OpenAI,
+  OCI Generative AI)
+- LLM-based document processing pipelines
+- Agent deployments (OpenClaw across AWS, GCP, Azure)
+- Containerized GenAI workloads
+- AI-accelerated infrastructure delivery and build patterns
+
+REGULATED ENVIRONMENTS
+----------------------
+- Pharmaceutical and life sciences (primary industry)
+- FDA / GxP-aligned operations
+- 21 CFR Part 11 exposure
+- Validated system deployments
+- HIPAA exposure
+- Change control, audit trail, data integrity standards
+- Disaster recovery documentation and SOP compliance

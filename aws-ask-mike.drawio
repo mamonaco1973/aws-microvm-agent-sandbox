@@ -1,0 +1,81 @@
+<mxfile host="app.diagrams.net" agent="ask-mike">
+  <diagram id="ask-mike" name="Architecture">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1000" pageHeight="520" background="none" math="0" shadow="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="aws-border" parent="1" style="whiteSpace=wrap;fillColor=none;rounded=0;labelBackgroundColor=none;fontColor=none;noLabel=1;strokeColor=#232F3E;dashed=1;" value="" vertex="1">
+          <mxGeometry height="430" width="800" x="170" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="aws-label" parent="1" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=none;fillColor=none;fontColor=light-dark(#000000, #bdc7d4);fontSize=14;align=left;labelPosition=right;verticalLabelPosition=middle;verticalAlign=middle;spacing=8;html=1;points=[];textShadow=1;" value="AWS Cloud — us-east-1" vertex="1">
+          <mxGeometry height="26.25" width="32" x="170" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" parent="1" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=16;image=img/lib/azure2/general/Browser.svg;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;textShadow=1;labelBorderColor=none;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;Browser (SPA)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="57" x="60" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="cognito" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;textShadow=1;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;Cognito&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;Hosted UI&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="220" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#CC2264;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;textShadow=1;" value="API Gateway" vertex="1">
+          <mxGeometry height="50" width="50" x="320" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="dynamodb" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#3334B9;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;textShadow=1;" value="DynamoDB&lt;div&gt;App Table&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="530" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-backend" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;textShadow=1;" value="S3 Backend&lt;div&gt;corpus + Q&amp;A&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="530" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="sqs" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#000000;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;textShadow=1;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;SQS&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;query-queue&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="530" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=middle;verticalAlign=middle;align=left;html=1;fontSize=14;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;textShadow=1;spacingLeft=4;labelPosition=right;" value="Worker Lambda&lt;div&gt;worker.py&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="740" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="bedrock" parent="1" style="sketch=0;outlineConnect=0;fontColor=#000000;fillColor=#01A88D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=14;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;textShadow=1;" value="Bedrock&lt;div&gt;Claude Haiku&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="50" x="880" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="e-browser-cognito" edge="1" parent="1" source="browser" style="endArrow=classic;html=1;rounded=0;dashed=1;labelBackgroundColor=none;spacingLeft=-9;textShadow=1;" target="cognito" value="PKCE login">
+          <mxGeometry relative="1" x="0.1837" y="15" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="90" y="105" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-browser-api" edge="1" parent="1" source="browser" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingLeft=0;spacingTop=-16;labelBorderColor=none;textShadow=1;" target="api" value="API calls + JWT">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-ddb" edge="1" parent="1" source="api" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingLeft=-73;textShadow=1;" target="dynamodb" value="Conv/query records">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-s3" edge="1" parent="1" source="api" style="endArrow=classic;startArrow=classic;startFill=0;html=1;rounded=0;labelBackgroundColor=none;spacingTop=-16;textShadow=1;" target="s3-backend" value="Questions + answers">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-api-sqs" edge="1" parent="1" source="api" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingLeft=-45;spacingTop=34;textShadow=1;" target="sqs" value="Enqueue query">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sqs-worker" edge="1" parent="1" source="sqs" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingLeft=64;textShadow=1;" target="worker" value="Trigger">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-worker-bedrock" edge="1" parent="1" source="worker" style="endArrow=classic;rounded=0;labelBackgroundColor=none;html=1;convertToSvg=1;textShadow=1;" target="bedrock" value="&lt;span&gt;RAG answer&lt;/span&gt;">
+          <mxGeometry relative="1" x="0.3333" y="42" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-worker-s3" edge="1" parent="1" source="worker" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingTop=-17;textShadow=1;" target="s3-backend" value="Answers + sources">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-worker-ddb" edge="1" parent="1" source="worker" style="endArrow=classic;html=1;rounded=0;labelBackgroundColor=none;spacingTop=-7;textShadow=1;" target="dynamodb" value="Update query status">
+          <mxGeometry relative="1" x="0.3939" y="-5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="765" y="105" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

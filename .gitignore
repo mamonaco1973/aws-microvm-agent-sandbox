@@ -1,0 +1,13 @@
+.terraform
+*.tfstate
+*.tfstate.backup
+*.terraform.lock.hcl
+*.terraform.*
+*.pem
+*.pub
+*.zip
+config.js
+beautifulsoup4-4.12.3.dist-info/
+bs4/
+soupsieve/
+soupsieve-2.8.3.dist-info/

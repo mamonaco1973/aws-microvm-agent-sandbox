@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ask Mike</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+  <!-- ================================================================ -->
+  <!-- App shell — sidebar + main                                       -->
+  <!-- ================================================================ -->
+
+  <div id="app-shell" class="hidden">
+
+    <!-- ============================================================== -->
+    <!-- Left sidebar                                                    -->
+    <!-- ============================================================== -->
+
+    <aside id="sidebar">
+
+      <div id="sidebar-header">
+        <button id="btn-new-chat" class="new-chat-btn" title="New chat">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          New chat
+        </button>
+        <a href="https://github.com/mamonaco1973" target="_blank" rel="noopener"
+           class="sidebar-link-btn" title="Open GitHub repositories">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61
+                     c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77
+                     5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0
+                     0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77
+                     5.44 5.44 0 0 0 3.5 8.55c0 5.42 3.3 6.61 6.44 7
+                     A3.37 3.37 0 0 0 9 18.13V22"/>
+          </svg>
+          Open GitHub
+        </a>
+        <a href="https://youtube.com/@MikesCloudSolutions" target="_blank" rel="noopener"
+           class="sidebar-link-btn sidebar-link-btn--yt" title="Open YouTube channel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+               viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12
+                     3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0
+                     12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12
+                     20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24
+                     15.96 24 12 24 12s0-3.96-.5-5.81z"/>
+            <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="white"/>
+          </svg>
+          Open YouTube
+        </a>
+        <a href="https://www.linkedin.com/in/michael-monaco/" target="_blank" rel="noopener"
+           class="sidebar-link-btn sidebar-link-btn--li" title="Open LinkedIn profile">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+               viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037
+                     -1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046
+                     c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286z
+                     M5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1
+                     2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452z
+                     M22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24
+                     1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774
+                     23.2 0 22.222 0h.003z"/>
+          </svg>
+          Open LinkedIn
+        </a>
+        <a href="https://github.com/mamonaco1973/aws-ask-mike" target="_blank" rel="noopener"
+           class="sidebar-link-btn sidebar-link-btn--build" title="Build this application">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+          Build This Application
+        </a>
+      </div>
+
+      <nav id="conv-list">
+        <!-- Rendered by sidebar.js -->
+      </nav>
+
+      <div id="sidebar-footer">
+        <div id="token-usage-widget" class="hidden">
+          <svg class="token-ring" viewBox="0 0 36 36" width="28" height="28">
+            <circle class="token-ring-bg"  cx="18" cy="18" r="15.9"/>
+            <circle class="token-ring-arc" id="token-ring-arc"
+                    cx="18" cy="18" r="15.9"
+                    stroke-dasharray="100 0" stroke-dashoffset="25"/>
+          </svg>
+          <span id="token-usage-label"></span>
+        </div>
+        <div id="sidebar-user" class="sidebar-user hidden"></div>
+        <button id="btn-sign-out" class="sidebar-sign-out hidden" title="Sign out">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Sign out
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ============================================================== -->
+    <!-- Sidebar overlay — mobile only, dims content behind open sidebar -->
+    <!-- ============================================================== -->
+
+    <div id="sidebar-overlay"></div>
+
+    <!-- ============================================================== -->
+    <!-- Main chat area                                                  -->
+    <!-- ============================================================== -->
+
+    <main id="chat-main">
+
+      <div id="mobile-topbar">
+        <button id="sidebar-toggle" title="Menu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <span id="mobile-topbar-title">Ask Mike</span>
+      </div>
+
+      <!-- Empty state — shown when no conversation is selected -->
+      <div id="empty-state">
+        <div class="empty-logo">Ask Mike</div>
+        <p class="empty-tagline">
+          Explore Mike's cloud reference architectures, YouTube channel, and open-source portfolio.
+        </p>
+        <div class="starter-grid">
+          <button class="starter-btn" data-q="Compare the auto scaling reference architectures: oci-instance-pool, aws-autoscaling, azure-vmss, and gcp-mig. How do they differ in design, components, and approach?">Compare autoscaling reference architectures</button>
+          <button class="starter-btn" data-q="Compare the Kubernetes reference architectures across AWS, GCP, Azure, and OCI. How do they differ in design, components, and approach?">Compare Kubernetes reference architectures</button>
+          <button class="starter-btn" data-q="What is Mike's RStudio cluster architecture? How does it use shared storage, identity, and autoscaling?">What is Mike's RStudio cluster architecture?</button>
+          <button class="starter-btn" data-q="Give me a complete list of all GitHub repos in Mike's portfolio.">What's in Mike's GitHub portfolio?</button>
+          <button class="starter-btn" data-q="Give me a complete list of all videos on Mike's YouTube channel.">What's on Mike's YouTube channel?</button>
+          <button class="starter-btn" data-q="What AI and machine learning projects has Mike built? Tell me about his RAG demos, Bedrock usage, and AI-enabled architectures.">What AI projects has Mike built?</button>
+          <button class="starter-btn" data-q="How was this Ask Mike application built? What AWS services does it use and how does the RAG pipeline work?">How was this application built?</button>
+          <button class="starter-btn" data-q="Does Mike have any PostgreSQL reference architectures? How does he deploy Postgres in the cloud across AWS, GCP, Azure, or OCI?">Can you help me deploy Postgres in the cloud?</button>
+        </div>
+      </div>
+
+      <!-- Chat log — shown when a conversation is active -->
+      <div id="chat-log" class="hidden">
+        <!-- Messages rendered by chat.js -->
+      </div>
+
+      <!-- Input bar -->
+      <div id="input-bar">
+        <div id="input-wrapper">
+          <textarea
+            id="chat-input"
+            placeholder="Ask about Mike's cloud architectures, YouTube videos, or open-source projects…"
+            rows="1"
+            maxlength="4000"
+          ></textarea>
+          <button id="btn-send" title="Send">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <p id="input-error" class="input-error hidden"></p>
+      </div>
+
+    </main>
+
+  </div><!-- /#app-shell -->
+
+  <!-- ================================================================ -->
+  <!-- Sign-in modal                                                    -->
+  <!-- ================================================================ -->
+
+  <div id="sign-in-modal" class="modal hidden">
+    <div class="modal-content--auth">
+
+      <div class="auth-preview-panel">
+        <div class="auth-preview-inner">
+          <img src="/avatar.png" alt="Mike Monaco" class="auth-avatar">
+          <div class="auth-preview-logo">Ask Mike</div>
+          <p class="auth-preview-tagline">
+            100+ cloud reference architectures across AWS, GCP, Azure, and OCI.
+          </p>
+          <ul class="auth-preview-features">
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Explore any reference architecture
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Compare patterns across cloud providers
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Grounded in GitHub repos and YouTube videos
+            </li>
+            <li>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Powered by AWS Bedrock RAG
+            </li>
+          </ul>
+
+          <div class="auth-preview-clouds">
+            <div class="cloud-provider-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="20" y="22" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="sans-serif">AWS</text>
+              </svg>
+              <span>AWS</span>
+            </div>
+            <div class="cloud-provider-icon">
+              <!-- GCP: cloud with G -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">G</text>
+              </svg>
+              <span>GCP</span>
+            </div>
+            <div class="cloud-provider-icon">
+              <!-- Azure: cloud with A -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">Az</text>
+              </svg>
+              <span>Azure</span>
+            </div>
+            <div class="cloud-provider-icon">
+              <!-- OCI: cloud with O -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+                <path d="M11 26c-3.9 0-7-3.1-7-7 0-3.5 2.6-6.4 6-6.9.8-3.4 3.9-6 7.6-6 2.8 0 5.3 1.5 6.7 3.7.4-.1.8-.1 1.2-.1 3.3 0 6 2.7 6 6 0 .2 0 .4-.1.6C33.4 17 35 19.3 35 22c0 3.3-2.7 6-6 6H11z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="20" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="white" font-family="sans-serif">OCI</text>
+              </svg>
+              <span>OCI</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-form-panel">
+        <h2>Ask Mike Monaco</h2>
+        <p class="auth-form-desc">
+          Sign in to explore Mike's cloud reference architectures, YouTube
+          channel, and open-source portfolio — powered by AWS Bedrock RAG.
+        </p>
+        <div class="auth-form-actions">
+          <button type="button" id="btn-cognito-sign-in">Sign In</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Alert modal                                                       -->
+  <!-- ================================================================ -->
+
+  <div id="alert-modal" class="modal hidden">
+    <div class="modal-content modal-content--sm">
+      <h2 id="alert-modal-title">Notice</h2>
+      <p id="alert-modal-message" class="modal-message"></p>
+      <div class="modal-actions">
+        <button type="button" id="alert-modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Confirm modal                                                     -->
+  <!-- ================================================================ -->
+
+  <div id="confirm-modal" class="modal hidden">
+    <div class="modal-content modal-content--sm">
+      <h2 id="confirm-modal-title">Confirm</h2>
+      <p id="confirm-modal-message" class="modal-message"></p>
+      <div class="modal-actions">
+        <button type="button" id="confirm-modal-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="confirm-modal-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Load application                                                  -->
+  <!-- ================================================================ -->
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script type="module" src="/js/app.js"></script>
+
+</body>
+</html>
