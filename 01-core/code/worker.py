@@ -9,9 +9,9 @@
 #   4. Write answer.txt + trace.json to S3
 #   5. Update the DynamoDB query record + accumulate the agent's token usage
 #
-# There is no RAG here: retrieval, prompt assembly, tool orchestration, and
+# There is no retrieval here: retrieval, prompt assembly, tool orchestration, and
 # conversation memory all live inside the agent. The worker is just the async
-# bridge between the browser and invoke_agent — same job the RAG worker did, with
+# bridge between the browser and invoke_agent — same job the old worker did, with
 # its middle replaced. sessionId gives the agent short-term (this conversation)
 # memory; memoryId gives it long-term memory across conversations.
 #

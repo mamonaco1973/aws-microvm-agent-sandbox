@@ -4,7 +4,7 @@
 # The agent is the orchestrator: given a question + a session, it decides which
 # tools (action groups) to call, in what order, calls them, and answers. Session
 # + long-term memory are managed by Bedrock (not by us) — that is the whole point
-# of this demo vs. the stateless RAG worker it was forked from.
+# of this demo vs. the stateless worker it was forked from.
 # ================================================================================
 
 # ------------------------------------------------------------------------------
@@ -13,7 +13,7 @@
 # (each tool Lambda runs under its own least-privilege role).
 # ------------------------------------------------------------------------------
 resource "aws_iam_role" "agent" {
-  name = "agentops-agent-${random_id.bucket_suffix.hex}"
+  name = "agent-role-${random_id.bucket_suffix.hex}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -55,7 +55,7 @@ resource "aws_iam_role_policy" "agent_invoke_model" {
 # the capability this whole demo exists to show.
 # ------------------------------------------------------------------------------
 resource "aws_bedrockagent_agent" "ops" {
-  agent_name                  = "agentops-copilot-${random_id.bucket_suffix.hex}"
+  agent_name                  = "agent-copilot-${random_id.bucket_suffix.hex}"
   agent_resource_role_arn     = aws_iam_role.agent.arn
   foundation_model            = var.agent_foundation_model
   idle_session_ttl_in_seconds = 1800

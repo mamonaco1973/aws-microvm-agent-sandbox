@@ -4,23 +4,23 @@
 # ================================================================================
 
 resource "aws_sqs_queue" "query_requests_dlq" {
-  name = "rag-query-requests-dlq-${random_id.bucket_suffix.hex}"
+  name = "agent-query-requests-dlq-${random_id.bucket_suffix.hex}"
 
   message_retention_seconds = 1209600
   receive_wait_time_seconds = 20
 
   tags = {
-    Name = "rag-query-requests-dlq"
+    Name = "agent-query-requests-dlq"
   }
 }
 
 # ================================================================================
 # SQS main queue
-# Receives asynchronous RAG query requests from the API Lambda
+# Receives asynchronous query requests from the API Lambda
 # ================================================================================
 
 resource "aws_sqs_queue" "query_requests" {
-  name = "rag-query-requests-${random_id.bucket_suffix.hex}"
+  name = "agent-query-requests-${random_id.bucket_suffix.hex}"
 
   # Visibility timeout exceeds worker Lambda timeout to prevent duplicate
   # processing if the Lambda is still running when the message reappears
@@ -34,7 +34,7 @@ resource "aws_sqs_queue" "query_requests" {
   })
 
   tags = {
-    Name = "rag-query-requests"
+    Name = "agent-query-requests"
   }
 }
 

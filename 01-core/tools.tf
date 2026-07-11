@@ -56,7 +56,7 @@ locals {
 # ------------------------------------------------------------------------------
 resource "aws_iam_role" "tool" {
   for_each = local.tools
-  name     = "agentops-tool-${each.key}-${random_id.bucket_suffix.hex}"
+  name     = "agent-tool-${each.key}-${random_id.bucket_suffix.hex}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -91,14 +91,14 @@ resource "aws_iam_role_policy" "tool_access" {
 resource "aws_lambda_function" "tool" {
   for_each = local.tools
 
-  function_name = "agentops-tool-${each.key}-${random_id.bucket_suffix.hex}"
+  function_name = "agent-tool-${each.key}-${random_id.bucket_suffix.hex}"
   description   = each.value.description
 
   filename         = data.archive_file.lambdas_zip.output_path
   source_code_hash = data.archive_file.lambdas_zip.output_base64sha256
 
   handler = each.value.handler
-  runtime = "python3.11"
+  runtime = "python3.13"
   role    = aws_iam_role.tool[each.key].arn
   timeout = 30
 }

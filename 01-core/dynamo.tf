@@ -9,7 +9,7 @@
 # ================================================================================
 
 resource "aws_dynamodb_table" "app_table" {
-  name         = "rag-app-${random_id.bucket_suffix.hex}"
+  name         = "agent-app-${random_id.bucket_suffix.hex}"
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key  = "pk"
@@ -26,6 +26,6 @@ resource "aws_dynamodb_table" "app_table" {
   }
 
   tags = {
-    Name = "rag-app"
+    Name = "agent-app"
   }
 }

@@ -1,6 +1,6 @@
 # =================================================================================
 # Backend S3 bucket
-# Stores user conversations, query Q&A, and the RAG corpus embeddings
+# Stores per-query payloads: question.txt, answer.txt, and trace.json
 # Bucket name = <base>-<random>
 # =================================================================================
 

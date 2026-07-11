@@ -8,10 +8,10 @@ A ChatGPT-style assistant backed by an **Amazon Bedrock Agent** that inspects an
 operates an AWS account through tools — "what's running and what's it costing
 me?", "stop the dev box" (with confirmation), "any alarms firing?". It is a demo
 of **Bedrock Agents (Option 2)**: tool use, multi-step orchestration, and managed
-session + long-term memory. It was forked from the `aws-ask-mike` RAG app and
+session + long-term memory. It was forked from the `aws-ask-mike` app and
 keeps that app's async spine; only the "brain" changed.
 
-There is **no RAG** here — no corpus, embeddings, or vector search. Retrieval,
+There is **no retrieval** here — no corpus, embeddings, or vector search. Retrieval,
 prompt assembly, tool orchestration, and conversation memory all live inside the
 agent. The worker just calls `invoke_agent` and stores the result.
 
@@ -32,7 +32,7 @@ agent. The worker just calls `invoke_agent` and stores the result.
    calls), sums the agent's token usage, writes `answer.txt` + `trace.json`,
    marks the query `complete`.
 4. Frontend polls `GET …/queries/{query_id}` every 2s; on completion renders the
-   answer with a **collapsible trace viewer** (the RAG "sources" widget,
+   answer with a **collapsible trace viewer** (the "sources" widget,
    repurposed).
 
 ### The agent (agent.tf)

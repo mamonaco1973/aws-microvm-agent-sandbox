@@ -4,7 +4,7 @@
 
 locals {
   # Resolve origin at apply time — custom domain takes priority over CloudFront default
-  spa_origin         = var.custom_domain != "" ? "https://${var.custom_domain}" : "https://${aws_cloudfront_distribution.askmike.domain_name}"
+  spa_origin         = var.custom_domain != "" ? "https://${var.custom_domain}" : "https://${aws_cloudfront_distribution.app.domain_name}"
   identity_providers = var.google_client_id != "" ? ["COGNITO", "Google"] : ["COGNITO"]
 }
 
@@ -12,8 +12,8 @@ locals {
 # Cognito User Pool
 # ================================================================================
 
-resource "aws_cognito_user_pool" "rag_app" {
-  name = "rag-app-user-pool-${random_id.bucket_suffix.hex}"
+resource "aws_cognito_user_pool" "app" {
+  name = "agent-app-user-pool-${random_id.bucket_suffix.hex}"
 
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
@@ -45,18 +45,18 @@ resource "aws_cognito_user_pool" "rag_app" {
 # Cognito Hosted UI domain
 # ================================================================================
 
-resource "aws_cognito_user_pool_domain" "rag_app" {
-  domain       = "rag-app-auth-${random_id.bucket_suffix.hex}"
-  user_pool_id = aws_cognito_user_pool.rag_app.id
+resource "aws_cognito_user_pool_domain" "app" {
+  domain       = "agent-app-auth-${random_id.bucket_suffix.hex}"
+  user_pool_id = aws_cognito_user_pool.app.id
 }
 
 # ================================================================================
 # Cognito User Pool Client — SPA PKCE client
 # ================================================================================
 
-resource "aws_cognito_user_pool_client" "rag_app" {
-  name         = "rag-app-spa-client-${random_id.bucket_suffix.hex}"
-  user_pool_id = aws_cognito_user_pool.rag_app.id
+resource "aws_cognito_user_pool_client" "app" {
+  name         = "agent-app-spa-client-${random_id.bucket_suffix.hex}"
+  user_pool_id = aws_cognito_user_pool.app.id
 
   generate_secret = false
 
@@ -84,7 +84,7 @@ resource "aws_cognito_user_pool_client" "rag_app" {
 resource "aws_cognito_identity_provider" "google" {
   count = var.google_client_id != "" ? 1 : 0
 
-  user_pool_id  = aws_cognito_user_pool.rag_app.id
+  user_pool_id  = aws_cognito_user_pool.app.id
   provider_name = "Google"
   provider_type = "Google"
 
@@ -107,17 +107,17 @@ resource "aws_cognito_identity_provider" "google" {
 # ================================================================================
 
 output "cognito_user_pool_id" {
-  value = aws_cognito_user_pool.rag_app.id
+  value = aws_cognito_user_pool.app.id
 }
 
 output "cognito_user_pool_client_id" {
-  value = aws_cognito_user_pool_client.rag_app.id
+  value = aws_cognito_user_pool_client.app.id
 }
 
 output "cognito_domain" {
-  value = aws_cognito_user_pool_domain.rag_app.domain
+  value = aws_cognito_user_pool_domain.app.domain
 }
 
 output "cognito_hosted_ui_base" {
-  value = "https://${aws_cognito_user_pool_domain.rag_app.domain}.auth.${data.aws_region.current.region}.amazoncognito.com"
+  value = "https://${aws_cognito_user_pool_domain.app.domain}.auth.${data.aws_region.current.region}.amazoncognito.com"
 }

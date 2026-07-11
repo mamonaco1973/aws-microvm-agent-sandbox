@@ -3,7 +3,7 @@
 # ================================================================================
 
 resource "aws_iam_role" "lambda_exec" {
-  name = "rag-app-lambda-${random_id.bucket_suffix.hex}"
+  name = "agent-app-lambda-${random_id.bucket_suffix.hex}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_dynamodb" {
-  name = "rag-app-dynamodb-${random_id.bucket_suffix.hex}"
+  name = "agent-app-dynamodb-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb_attach" {
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_s3" {
-  name = "agentops-s3-${random_id.bucket_suffix.hex}"
+  name = "agent-s3-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -91,7 +91,7 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_attach" {
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_sqs" {
-  name = "rag-app-sqs-${random_id.bucket_suffix.hex}"
+  name = "agent-app-sqs-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -125,7 +125,7 @@ resource "aws_iam_role_policy_attachment" "lambda_sqs_attach" {
 # ================================================================================
 
 resource "aws_iam_policy" "lambda_bedrock" {
-  name = "agentops-bedrock-${random_id.bucket_suffix.hex}"
+  name = "agent-bedrock-${random_id.bucket_suffix.hex}"
 
   policy = jsonencode({
     Version = "2012-10-17"

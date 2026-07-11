@@ -5,8 +5,8 @@
 
 # terraform {
 #   backend "s3" {
-#     bucket = "resume-app-824622998597-build"
-#     key    = "terraform/state/aws-rag-demo/terraform.tfstate"
+#     bucket = "your-terraform-state-bucket"
+#     key    = "terraform/state/aws-agent-ops/terraform.tfstate"
 #     region = "us-east-1"
 #   }
 # }

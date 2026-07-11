@@ -9,9 +9,9 @@ and tool call is rendered in a collapsible trace.
 > "Stop the dev box." → it confirms the exact instance, then calls
 > `control_ec2_instance`.
 
-It was forked from the `aws-ask-mike` RAG app: the entire async spine (SPA →
+It was forked from the `aws-ask-mike` app: the entire async spine (SPA →
 API → SQS → worker → poll, on Cognito + DynamoDB + S3 + CloudFront) is reused
-verbatim. Only the worker's brain changed — from a RAG pipeline to a single
+verbatim. Only the worker's brain changed — from a retrieval pipeline to a single
 `invoke_agent` call. **There is no corpus, no embeddings, no vector search.**
 
 ---

@@ -360,7 +360,7 @@ def get_query(event):
 def _hydrate_query(item):
     """Resolve S3 pointers on a DynamoDB query item to inline text.
 
-    `trace` is the agent's reasoning/tool-call trace (what replaced RAG sources).
+    `trace` is the agent's reasoning/tool-call trace (what replaced the sources widget).
     """
     question = None
     answer   = None

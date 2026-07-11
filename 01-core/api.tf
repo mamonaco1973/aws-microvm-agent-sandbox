@@ -3,14 +3,17 @@
 # ================================================================================
 
 resource "aws_apigatewayv2_api" "api" {
-  name          = "rag-api-${random_id.bucket_suffix.hex}"
+  name          = "agent-api-${random_id.bucket_suffix.hex}"
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = [
+    # Origins the SPA is actually served from: the S3 website endpoint, the
+    # CloudFront default domain, and the custom domain when one is configured.
+    allow_origins = compact([
       "https://${aws_s3_bucket.frontend.bucket}.s3.${data.aws_region.current.region}.amazonaws.com",
-      "https://askmike.mikes-cloud-solutions.com"
-    ]
+      "https://${aws_cloudfront_distribution.app.domain_name}",
+      var.custom_domain != "" ? "https://${var.custom_domain}" : "",
+    ])
 
     allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
     allow_headers = ["*"]
@@ -24,19 +27,19 @@ resource "aws_apigatewayv2_api" "api" {
 
 resource "aws_apigatewayv2_authorizer" "cognito" {
   api_id          = aws_apigatewayv2_api.api.id
-  name            = "rag-cognito-jwt"
+  name            = "agent-cognito-jwt"
   authorizer_type = "JWT"
 
   identity_sources = ["$request.header.Authorization"]
 
   jwt_configuration {
-    audience = [aws_cognito_user_pool_client.rag_app.id]
+    audience = [aws_cognito_user_pool_client.app.id]
 
     issuer = join("", [
       "https://cognito-idp.",
       data.aws_region.current.region,
       ".amazonaws.com/",
-      aws_cognito_user_pool.rag_app.id
+      aws_cognito_user_pool.app.id
     ])
   }
 }

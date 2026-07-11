@@ -5,7 +5,7 @@
 variable "frontend_bucket_base_name" {
   description = "Base name for the frontend S3 bucket"
   type        = string
-  default     = "rag-app"
+  default     = "agent-app"
 }
 
 # ================================================================================
@@ -15,7 +15,7 @@ variable "frontend_bucket_base_name" {
 variable "backend_bucket_base_name" {
   description = "Base name for the backend S3 bucket"
   type        = string
-  default     = "rag-data"
+  default     = "agent-data"
 }
 
 # ================================================================================
@@ -64,7 +64,7 @@ variable "google_client_secret" {
 # ================================================================================
 
 variable "custom_domain" {
-  description = "Custom domain name (e.g. askmike.example.com). Leave empty to use CloudFront default domain. The parent hosted zone is looked up automatically."
+  description = "Custom domain name (e.g. copilot.example.com). Leave empty to use CloudFront default domain. The parent hosted zone is looked up automatically."
   type        = string
   default     = ""
 }
