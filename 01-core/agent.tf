@@ -63,14 +63,17 @@ resource "aws_bedrockagent_agent" "ops" {
 
   instruction = <<-EOT
     You are Cloud Ops Copilot, an assistant that helps engineers inspect and
-    operate their AWS account using the tools provided. Answer with real data
-    from the tools — never guess at instance states, costs, or alarm status. If
-    a question needs live data, call the appropriate tool rather than
-    speculating. When the user asks to START or STOP an instance, ALWAYS restate
-    the exact instance id and name and ask them to confirm before calling the
-    control tool. Keep answers concise. Remember useful facts the user tells you
-    across the conversation — budgets, thresholds, or which instance is "the dev
-    box" — and apply them in later questions.
+    operate the serverless resources in their AWS account — Lambda functions,
+    API Gateway APIs, DynamoDB tables, and S3 buckets — plus their AWS costs.
+    Answer with real data from the tools; never guess at what exists, its
+    configuration, or the spend. If a question needs live data, call the
+    appropriate tool rather than speculating, and feel free to call several
+    tools to build a complete picture. When the user asks to CHANGE a Lambda's
+    memory or timeout, ALWAYS restate the function name and the exact before/after
+    values and ask them to confirm before calling the update tool. Keep answers
+    concise. Remember useful facts the user tells you across the conversation —
+    budgets, thresholds, or which function is "the staging function" — and apply
+    them in later questions.
   EOT
 
   memory_configuration {
@@ -82,24 +85,84 @@ resource "aws_bedrockagent_agent" "ops" {
 # ------------------------------------------------------------------------------
 # Action groups — one per tool Lambda (defined in tools.tf). One group per tool
 # keeps each capability behind its own narrowly-scoped IAM role, and makes the
-# agent's decisions legible in the trace ("called get_costs, then list_resources").
+# agent's decisions legible in the trace ("called list_lambdas, then get_costs").
 # The function_schema is how the agent knows each tool's name, purpose, and args.
 # ------------------------------------------------------------------------------
-resource "aws_bedrockagent_agent_action_group" "list_resources" {
+resource "aws_bedrockagent_agent_action_group" "list_lambdas" {
   agent_id                   = aws_bedrockagent_agent.ops.agent_id
   agent_version              = "DRAFT"
-  action_group_name          = "list_resources"
+  action_group_name          = "list_lambdas"
   skip_resource_in_use_check = true
 
   action_group_executor {
-    lambda = aws_lambda_function.tool["list_resources"].arn
+    lambda = aws_lambda_function.tool["list_lambdas"].arn
   }
 
   function_schema {
     member_functions {
       functions {
-        name        = "list_ec2_instances"
-        description = "List EC2 instances in the account with their id, Name tag, type, and current state (running/stopped/etc)."
+        name        = "list_lambda_functions"
+        description = "List the account's Lambda functions with runtime, memory, timeout, code size, and last-modified date."
+      }
+    }
+  }
+}
+
+resource "aws_bedrockagent_agent_action_group" "list_apis" {
+  agent_id                   = aws_bedrockagent_agent.ops.agent_id
+  agent_version              = "DRAFT"
+  action_group_name          = "list_apis"
+  skip_resource_in_use_check = true
+
+  action_group_executor {
+    lambda = aws_lambda_function.tool["list_apis"].arn
+  }
+
+  function_schema {
+    member_functions {
+      functions {
+        name        = "list_api_gateways"
+        description = "List API Gateway APIs (both HTTP/WebSocket and REST) with their name, type, id, and endpoint."
+      }
+    }
+  }
+}
+
+resource "aws_bedrockagent_agent_action_group" "list_tables" {
+  agent_id                   = aws_bedrockagent_agent.ops.agent_id
+  agent_version              = "DRAFT"
+  action_group_name          = "list_tables"
+  skip_resource_in_use_check = true
+
+  action_group_executor {
+    lambda = aws_lambda_function.tool["list_tables"].arn
+  }
+
+  function_schema {
+    member_functions {
+      functions {
+        name        = "list_dynamodb_tables"
+        description = "List DynamoDB tables with item count, size, and billing mode."
+      }
+    }
+  }
+}
+
+resource "aws_bedrockagent_agent_action_group" "list_buckets" {
+  agent_id                   = aws_bedrockagent_agent.ops.agent_id
+  agent_version              = "DRAFT"
+  action_group_name          = "list_buckets"
+  skip_resource_in_use_check = true
+
+  action_group_executor {
+    lambda = aws_lambda_function.tool["list_buckets"].arn
+  }
+
+  function_schema {
+    member_functions {
+      functions {
+        name        = "list_s3_buckets"
+        description = "List S3 buckets with their region and creation date."
       }
     }
   }
@@ -131,52 +194,38 @@ resource "aws_bedrockagent_agent_action_group" "get_costs" {
   }
 }
 
-resource "aws_bedrockagent_agent_action_group" "get_alarms" {
+resource "aws_bedrockagent_agent_action_group" "control_lambda" {
   agent_id                   = aws_bedrockagent_agent.ops.agent_id
   agent_version              = "DRAFT"
-  action_group_name          = "get_alarms"
+  action_group_name          = "control_lambda"
   skip_resource_in_use_check = true
 
   action_group_executor {
-    lambda = aws_lambda_function.tool["get_alarms"].arn
+    lambda = aws_lambda_function.tool["control_lambda"].arn
   }
 
   function_schema {
     member_functions {
       functions {
-        name        = "get_cloudwatch_alarms"
-        description = "List CloudWatch alarms and their current state (OK, ALARM, or INSUFFICIENT_DATA)."
-      }
-    }
-  }
-}
-
-resource "aws_bedrockagent_agent_action_group" "control_instance" {
-  agent_id                   = aws_bedrockagent_agent.ops.agent_id
-  agent_version              = "DRAFT"
-  action_group_name          = "control_instance"
-  skip_resource_in_use_check = true
-
-  action_group_executor {
-    lambda = aws_lambda_function.tool["control_instance"].arn
-  }
-
-  function_schema {
-    member_functions {
-      functions {
-        name        = "control_ec2_instance"
-        description = "Start or stop a specific EC2 instance. Only call after the user has confirmed the exact instance."
+        name        = "update_lambda_config"
+        description = "Change a Lambda function's memory size and/or timeout. Only call after the user has confirmed the function name and the new values."
         parameters {
-          map_block_key = "instance_id"
+          map_block_key = "function_name"
           type          = "string"
-          description   = "The EC2 instance id, e.g. i-0abc123."
+          description   = "The Lambda function name to update."
           required      = true
         }
         parameters {
-          map_block_key = "action"
-          type          = "string"
-          description   = "Either 'start' or 'stop'."
-          required      = true
+          map_block_key = "memory_size"
+          type          = "integer"
+          description   = "New memory size in MB (128-10240). Omit to leave unchanged."
+          required      = false
+        }
+        parameters {
+          map_block_key = "timeout"
+          type          = "integer"
+          description   = "New timeout in seconds (1-900). Omit to leave unchanged."
+          required      = false
         }
       }
     }
@@ -193,9 +242,11 @@ resource "aws_bedrockagent_agent_alias" "live" {
   agent_id         = aws_bedrockagent_agent.ops.agent_id
 
   depends_on = [
-    aws_bedrockagent_agent_action_group.list_resources,
+    aws_bedrockagent_agent_action_group.list_lambdas,
+    aws_bedrockagent_agent_action_group.list_apis,
+    aws_bedrockagent_agent_action_group.list_tables,
+    aws_bedrockagent_agent_action_group.list_buckets,
     aws_bedrockagent_agent_action_group.get_costs,
-    aws_bedrockagent_agent_action_group.get_alarms,
-    aws_bedrockagent_agent_action_group.control_instance,
+    aws_bedrockagent_agent_action_group.control_lambda,
   ]
 }

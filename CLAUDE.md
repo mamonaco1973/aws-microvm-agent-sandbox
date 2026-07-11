@@ -4,9 +4,10 @@ Guidance for working in **aws-agent-ops** (product name: **Cloud Ops Copilot**).
 
 ## What This App Is
 
-A ChatGPT-style assistant backed by an **Amazon Bedrock Agent** that inspects and
-operates an AWS account through tools — "what's running and what's it costing
-me?", "stop the dev box" (with confirmation), "any alarms firing?". It is a demo
+A ChatGPT-style assistant backed by an **Amazon Bedrock Agent** that inventories
+and tunes the serverless resources in an AWS account through tools — "give me a
+full inventory of my Lambdas, APIs, tables, and buckets and what they cost",
+"bump my-func to 512 MB" (with confirmation). It is a demo
 of **Bedrock Agents (Option 2)**: tool use, multi-step orchestration, and managed
 session + long-term memory. It was forked from the `aws-ask-mike` app and
 keeps that app's async spine; only the "brain" changed.
@@ -39,8 +40,9 @@ agent. The worker just calls `invoke_agent` and stores the result.
 
 - `aws_bedrockagent_agent` — foundation model + `instruction` (system prompt) +
   `memory_configuration` (SESSION_SUMMARY, 30-day) → cross-session memory.
-- Four **action groups**, one per tool, each pointing at its own Lambda:
-  `list_resources`, `get_costs`, `get_alarms`, `control_instance`.
+- Six **action groups**, one per tool, each pointing at its own Lambda:
+  `list_lambdas`, `list_apis`, `list_tables`, `list_buckets`, `get_costs`,
+  `control_lambda`.
 - `aws_bedrockagent_agent_alias` "live" — the stable endpoint the worker calls;
   `depends_on` all action groups so "prepare" bakes the tools into the version.
 
@@ -49,10 +51,12 @@ agent. The worker just calls `invoke_agent` and stores the result.
 One Lambda per tool, each under its **own least-privilege role** — the agent can
 only do what a tool's IAM allows:
 
-- `tool_list_resources` — `ec2:DescribeInstances` (read)
+- `tool_list_lambdas` — `lambda:ListFunctions` (read)
+- `tool_list_apis` — `apigateway:GET` (read; HTTP + REST)
+- `tool_list_tables` — `dynamodb:ListTables`/`DescribeTable` (read)
+- `tool_list_buckets` — `s3:ListAllMyBuckets`/`GetBucketLocation` (read)
 - `tool_get_costs` — `ce:GetCostAndUsage` (read)
-- `tool_get_alarms` — `cloudwatch:DescribeAlarms` (read)
-- `tool_control_instance` — `ec2:Start/Stop/DescribeInstances` (**only** mutator)
+- `tool_control_lambda` — `lambda:Get/UpdateFunctionConfiguration` (**only** mutator)
 
 Bedrock invokes them via a resource-based `aws_lambda_permission` scoped to the
 agent's ARN. `tool_common.py` hides the Bedrock action-group event/response

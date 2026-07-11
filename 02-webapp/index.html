@@ -143,15 +143,15 @@
       <div id="empty-state">
         <div class="empty-logo">Cloud Ops Copilot</div>
         <p class="empty-tagline">
-          A Bedrock Agent that inspects and operates your AWS account in plain English — expand the trace to watch it decide.
+          A Bedrock Agent that inventories and tunes your serverless AWS resources in plain English — expand the trace to watch it decide.
         </p>
         <div class="starter-grid">
-          <button class="starter-btn" data-q="What EC2 instances are running and what's my month-to-date spend?">What's running and what's it costing me?</button>
-          <button class="starter-btn" data-q="List all my EC2 instances and their state.">List my EC2 instances</button>
+          <button class="starter-btn" data-q="Give me a complete inventory of my serverless resources — Lambda functions, API Gateway APIs, DynamoDB tables, and S3 buckets — and my month-to-date AWS cost.">Full serverless inventory + cost</button>
+          <button class="starter-btn" data-q="List my Lambda functions with their runtime, memory, and timeout.">List my Lambda functions</button>
+          <button class="starter-btn" data-q="What DynamoDB tables do I have, and how big are they?">What DynamoDB tables do I have?</button>
           <button class="starter-btn" data-q="Break down my month-to-date AWS spend by service.">Break down my spend by service</button>
-          <button class="starter-btn" data-q="Are any of my CloudWatch alarms currently in ALARM?">Any alarms firing?</button>
           <button class="starter-btn" data-q="Remember that my monthly budget threshold is $50. Am I over it yet?">Remember my $50 budget — am I over?</button>
-          <button class="starter-btn" data-q="Which of my instances are stopped? I might want to clean them up.">Which instances are stopped?</button>
+          <button class="starter-btn" data-q="How many S3 buckets and API Gateway APIs do I have?">How many buckets and APIs?</button>
         </div>
       </div>
 
@@ -165,7 +165,7 @@
         <div id="input-wrapper">
           <textarea
             id="chat-input"
-            placeholder="Ask about your instances, costs, or alarms — or ask it to stop an instance…"
+            placeholder="Ask about your Lambdas, APIs, tables, buckets, or costs — or ask it to tune a function…"
             rows="1"
             maxlength="4000"
           ></textarea>
@@ -205,7 +205,7 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Ask about instances, costs, and alarms
+              Ask about Lambdas, APIs, tables, buckets &amp; cost
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -213,7 +213,7 @@
                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Start or stop instances — with confirmation
+              Tune a Lambda's memory/timeout — with confirmation
             </li>
             <li>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -238,8 +238,8 @@
       <div class="auth-form-panel">
         <h2>Cloud Ops Copilot</h2>
         <p class="auth-form-desc">
-          Sign in to chat with a Bedrock Agent that can inspect your EC2
-          instances, costs, and alarms — and act on them, with your confirmation.
+          Sign in to chat with a Bedrock Agent that can inventory your Lambdas,
+          APIs, tables, buckets, and costs — and tune a function, with your confirmation.
         </p>
         <div class="auth-form-actions">
           <button type="button" id="btn-cognito-sign-in">Sign In</button>

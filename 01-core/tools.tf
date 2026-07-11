@@ -3,20 +3,48 @@
 #
 # One Lambda per action group. Each runs under its OWN least-privilege role, so
 # the agent can only ever do what a given tool's IAM allows — the containment
-# story of the demo. All four share the single lambdas.zip (different handlers).
+# story of the demo. All six share the single lambdas.zip (different handlers).
 #
 # `statements` is each tool's exact AWS permission set. Read tools are read-only;
-# control_instance is the only one that can mutate, and only start/stop EC2.
+# control_lambda is the only one that can mutate, and only a function's mem/timeout.
 # ================================================================================
 
 locals {
   tools = {
-    list_resources = {
-      handler     = "tool_list_resources.lambda_handler"
-      description = "List EC2 instances"
+    list_lambdas = {
+      handler     = "tool_list_lambdas.lambda_handler"
+      description = "List Lambda functions"
       statements = [{
         Effect   = "Allow"
-        Action   = ["ec2:DescribeInstances"]
+        Action   = ["lambda:ListFunctions"]
+        Resource = "*"
+      }]
+    }
+    list_apis = {
+      handler     = "tool_list_apis.lambda_handler"
+      description = "List API Gateway APIs (HTTP + REST)"
+      # apigateway:GET covers both /apis (v2) and /restapis (v1) reads.
+      statements = [{
+        Effect   = "Allow"
+        Action   = ["apigateway:GET"]
+        Resource = "*"
+      }]
+    }
+    list_tables = {
+      handler     = "tool_list_tables.lambda_handler"
+      description = "List DynamoDB tables"
+      statements = [{
+        Effect   = "Allow"
+        Action   = ["dynamodb:ListTables", "dynamodb:DescribeTable"]
+        Resource = "*"
+      }]
+    }
+    list_buckets = {
+      handler     = "tool_list_buckets.lambda_handler"
+      description = "List S3 buckets"
+      statements = [{
+        Effect   = "Allow"
+        Action   = ["s3:ListAllMyBuckets", "s3:GetBucketLocation"]
         Resource = "*"
       }]
     }
@@ -29,22 +57,12 @@ locals {
         Resource = "*"
       }]
     }
-    get_alarms = {
-      handler     = "tool_get_alarms.lambda_handler"
-      description = "CloudWatch alarm states"
+    control_lambda = {
+      handler     = "tool_control_lambda.lambda_handler"
+      description = "Update a Lambda's memory/timeout (the only mutating tool)"
       statements = [{
         Effect   = "Allow"
-        Action   = ["cloudwatch:DescribeAlarms"]
-        Resource = "*"
-      }]
-    }
-    control_instance = {
-      handler     = "tool_control_instance.lambda_handler"
-      description = "Start/stop an EC2 instance"
-      # DescribeInstances too, so it can resolve the Name tag for confirmation.
-      statements = [{
-        Effect   = "Allow"
-        Action   = ["ec2:StartInstances", "ec2:StopInstances", "ec2:DescribeInstances"]
+        Action   = ["lambda:GetFunctionConfiguration", "lambda:UpdateFunctionConfiguration"]
         Resource = "*"
       }]
     }

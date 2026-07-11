@@ -33,14 +33,16 @@ agent decide → call a tool → read the result → answer.
 
 | Tool | AWS API | Access |
 |---|---|---|
-| `list_ec2_instances` | `ec2:DescribeInstances` | read |
+| `list_lambda_functions` | `lambda:ListFunctions` | read |
+| `list_api_gateways` | `apigateway:GET` | read |
+| `list_dynamodb_tables` | `dynamodb:ListTables` / `DescribeTable` | read |
+| `list_s3_buckets` | `s3:ListAllMyBuckets` / `GetBucketLocation` | read |
 | `get_month_to_date_cost` | `ce:GetCostAndUsage` | read |
-| `get_cloudwatch_alarms` | `cloudwatch:DescribeAlarms` | read |
-| `control_ec2_instance` | `ec2:Start/Stop/DescribeInstances` | **mutate** |
+| `update_lambda_config` | `lambda:GetFunctionConfiguration` / `UpdateFunctionConfiguration` | **mutate** |
 
 Each tool is a separate Lambda under its **own least-privilege IAM role** — the
-agent can never do more than a tool is permitted to. `control_ec2_instance` is
-the only tool that can change anything, and only start/stop.
+agent can never do more than a tool is permitted to. `update_lambda_config` is
+the only tool that can change anything, and only a function's memory/timeout.
 
 ## Architecture
 
@@ -51,7 +53,7 @@ Browser (SPA)
 API Lambda ──► SQS ──► Worker Lambda ── invoke_agent ──►│
                                    │                     │
                                    ▼                     │
-                         Bedrock Agent ── tools ──► tool Lambdas ──► EC2 / CE / CloudWatch
+                         Bedrock Agent ── tools ──► tool Lambdas ──► Lambda / API GW / DynamoDB / S3 / Cost Explorer
                          (memory: session + long-term)
    S3: question / answer / trace.json     DynamoDB: conversations, queries, usage
 ```
@@ -77,14 +79,18 @@ default).
 
 Sign in, then:
 
-1. **"What EC2 instances are running and what's my month-to-date spend?"**
-   → watch the trace: two tool calls, correlated into one answer.
-2. **"Break down my spend by service."** → `get_month_to_date_cost(group_by_service=true)`.
-3. **"Any CloudWatch alarms firing?"** → `get_cloudwatch_alarms`.
-4. **"Stop instance i-0abc123."** → the agent restates the instance + name and
-   asks you to confirm before calling `control_ec2_instance`.
-5. **"Remember my monthly budget is $50."** → then start a *new* conversation and
-   ask **"Am I over budget?"** — long-term memory recalls the $50 across sessions.
+1. **"Give me a complete inventory of my serverless resources and my month-to-date cost."**
+   → the trace shows the agent fan out across `list_lambda_functions`,
+   `list_api_gateways`, `list_dynamodb_tables`, `list_s3_buckets`, and
+   `get_month_to_date_cost`, then assemble one answer. The orchestration money shot.
+2. **"List my Lambda functions with their memory and runtime."** → `list_lambda_functions`.
+3. **"Break down my spend by service."** → `get_month_to_date_cost(group_by_service=true)`.
+4. **"Bump the memory on `my-func` to 512 MB."** → the agent restates the function
+   and the before/after values and asks you to confirm before calling
+   `update_lambda_config`. Then **"put it back"** — it remembers the old value.
+5. **"Remember my monthly budget is $50 — am I over it?"** → recalls the $50 and
+   compares to the cost tool (reliable within one conversation; cross-conversation
+   recall needs the prior session to summarize — see below).
 
 Expand the trace under any answer to see exactly which tools ran, with what args.
 
