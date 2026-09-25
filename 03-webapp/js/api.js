@@ -1,6 +1,6 @@
 /* ============================================================================ */
 /* api.js                                                                       */
-/* HTTP client for the Sandbox Agent backend API.                              */
+/* HTTP client for the MicroVM Agent Sandbox backend API.                     */
 /* All requests include the Cognito JWT Bearer token from localStorage.        */
 /* ============================================================================ */
 

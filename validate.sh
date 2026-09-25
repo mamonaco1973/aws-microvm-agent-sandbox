@@ -192,7 +192,7 @@ echo "NOTE: Sandbox endpoint rejects unauthenticated requests (403)."
 
 echo ""
 echo "========================================================"
-echo "  Sandbox Agent — deployment validated"
+echo "  MicroVM Agent Sandbox — deployment validated"
 echo "========================================================"
 echo "  App : ${CUSTOM_URL}"
 echo "  Try : Build me a fractal tree and get me the results"

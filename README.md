@@ -1,4 +1,4 @@
-# Sandbox Agent (`aws-agent-ops`)
+# MicroVM Agent Sandbox (`aws-microvm-agent-sandbox`)
 
 A chat app whose agent has its own **AWS Lambda MicroVM** to run code in.
 
