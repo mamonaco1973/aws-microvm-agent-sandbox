@@ -9,6 +9,7 @@
 *.pem
 *.pub
 *.zip
+dist/
 config.js
 
 # Python
