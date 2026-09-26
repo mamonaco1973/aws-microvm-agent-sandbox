@@ -193,6 +193,7 @@ function appendErrorMessage(text, queryId) {
 /* ---------------------------------------------------------------------------- */
 
 const _TRACE_ICONS = {
+  context:     "📚",
   sandbox:     "🖥️",
   reasoning:   "🧠",
   tool_call:   "🔧",
@@ -216,7 +217,7 @@ function _fmtBytes(n) {
 
 function _traceStepHtml(step) {
   const icon = _TRACE_ICONS[step.type] || "•";
-  if (step.type === "sandbox") {
+  if (step.type === "sandbox" || step.type === "context") {
     return `<div class="trace-step"><span class="trace-ic">${icon}</span>
       <span class="trace-sandbox">${_esc(step.text)}</span></div>`;
   }
@@ -226,13 +227,16 @@ function _traceStepHtml(step) {
   }
   if (step.type === "tool_call") {
     const input = step.input || {};
-    // Code is the interesting part of run_code, so it gets a real block
-    // instead of being flattened into key=value arguments.
-    if (typeof input.code === "string") {
+    // Code is the interesting part of run_code / run_shell, so it gets a
+    // real (folded) block instead of being flattened into key=value args.
+    const src  = typeof input.code === "string" ? input.code
+               : typeof input.command === "string" ? input.command : null;
+    if (src !== null) {
+      const lang = step.tool === "run_shell" ? "bash" : "python";
       return `<div class="trace-step trace-step--block"><span class="trace-ic">${icon}</span>
         <div class="trace-body">called <code class="trace-tool">${_esc(step.tool)}</code>
-        ${_foldHtml(`python · ${_lineCount(input.code)}`,
-                    `<pre class="trace-code">${_esc(input.code)}</pre>`)}</div></div>`;
+        ${_foldHtml(`${lang} · ${_lineCount(src)}`,
+                    `<pre class="trace-code">${_esc(src)}</pre>`)}</div></div>`;
     }
     const args = Object.keys(input).length
       ? "(" + Object.entries(input).map(([k, v]) => `${_esc(k)}=${_esc(v)}`).join(", ") + ")"
@@ -311,7 +315,9 @@ function _progressText(trace) {
   const step = trace[trace.length - 1];
   if (!step) return "";
   if (step.type === "sandbox")     return step.text;
-  if (step.type === "tool_call")   return step.tool === "run_code" ? "Running code in the sandbox…"
+  if (step.type === "context")     return "Loading the conversation and sandbox state…";
+  if (step.type === "tool_call")   return step.tool === "run_code"  ? "Running Python in the sandbox…"
+                                       : step.tool === "run_shell" ? "Running a shell command in the sandbox…"
                                        : step.tool === "show_file" ? "Fetching a file from the sandbox…"
                                        : `Calling ${step.tool}…`;
   if (step.type === "tool_result") return step.ok === false ? "Cell failed — the agent is reading the error…"

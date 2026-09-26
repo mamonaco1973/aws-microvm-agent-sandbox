@@ -83,7 +83,7 @@ def state_of(vm_id):
         return "TERMINATED"
 
 
-def _gone(state):
+def gone(state):
     """True for any state a request can no longer wake."""
     return "TERMINAT" in state or "FAIL" in state
 
@@ -94,7 +94,7 @@ def _wait_running(vm_id, timeout=30):
         state = state_of(vm_id)
         if state == "RUNNING":
             return
-        if _gone(state):
+        if gone(state):
             raise SandboxError(f"Sandbox reached {state} while starting")
         time.sleep(0.25)
     raise SandboxError(f"Sandbox did not start within {timeout}s")
@@ -147,7 +147,7 @@ def ensure(user_id, conv_id):
     # A different image means a redeploy; the old VM is not this code.
     if old_id and item.get("sandbox_image") == IMAGE_ARN:
         state = state_of(old_id)
-        if not _gone(state):
+        if not gone(state):
             return {"id": old_id, "endpoint": item["sandbox_endpoint"],
                     "state": state}, None
 
@@ -257,9 +257,13 @@ def _request(session, path, body=None, raw=False):
     raise SandboxError(f"Sandbox unreachable ({last})")
 
 
-def submit(session, code):
-    """Hand a cell to the kernel. Returns {"job": id} or {"state": "refused", ...}."""
-    return _request(session, "/execute", {"code": code})
+def submit(session, code, kernel="python"):
+    """Hand a cell to one of the VM's sessions, "python" or "bash".
+
+    Returns:
+        {"job": id} or {"state": "refused", "error": ...}.
+    """
+    return _request(session, "/execute", {"code": code, "kernel": kernel})
 
 
 def result(session, job):

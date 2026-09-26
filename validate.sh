@@ -6,8 +6,8 @@
 #
 #   1. Launch a MicroVM from the image, exactly as the worker does
 #   2. Run a cell that renders a fractal tree, then fetch the PNG through /file
-#   3. Suspend it, resume it with an ordinary HTTPS request, and prove the
-#      Python session survived (a variable set before the suspend)
+#   3. Suspend it, resume it with an ordinary HTTPS request, and prove both
+#      sessions survived: a Python variable, and a bash cd + export
 #   4. Terminate it -- always, including on failure
 #
 # It does not exercise Cognito, the worker or Bedrock: sign in and ask for a
@@ -79,9 +79,11 @@ vm_request() {
 }
 
 # Submit a cell and poll it to completion; echoes the result object.
+# Usage: run_cell <code> [python|bash]
 run_cell() {
   local submitted job polled state waited=0
-  submitted=$(vm_request POST /execute "$(jq -n --arg code "$1" '{code: $code}')") || return 1
+  submitted=$(vm_request POST /execute \
+    "$(jq -n --arg code "$1" --arg kernel "${2:-python}" '{code: $code, kernel: $kernel}')") || return 1
   job=$(echo "${submitted}" | jq -r '.job // empty')
   [[ -n "${job}" ]] || { echo "ERROR: Cell refused: ${submitted}" >&2; return 1; }
   while (( waited < 300 )); do
@@ -165,8 +167,15 @@ fi
 echo "NOTE: Fetched the rendered PNG ($(wc -c < dist/validate_tree.png) bytes) -> dist/validate_tree.png"
 
 # ------------------------------------------------------------------------------
-# Suspend, resume, and prove the session survived
+# Suspend, resume, and prove both sessions survived
 # ------------------------------------------------------------------------------
+
+echo "NOTE: Seeding bash session state (cd + export)..."
+SEEDED=$(run_cell 'cd /tmp && export MARKER=validated && echo seeded' bash) || exit 1
+echo "${SEEDED}" | jq -e '.ok == true' >/dev/null || {
+  echo "ERROR: Bash seed failed: $(echo "${SEEDED}" | jq -r '.stdout')"
+  exit 1
+}
 
 echo "NOTE: Suspending the MicroVM..."
 aws lambda-microvms suspend-microvm --microvm-identifier "${VM_ID}" >/dev/null
@@ -181,6 +190,13 @@ if [[ "${OUTPUT}" != "'validated'" ]]; then
   exit 1
 fi
 echo "NOTE: Python session survived suspend/resume: marker = ${OUTPUT}"
+
+SHELL_OUT=$(run_cell 'echo "${MARKER} $(pwd)"' bash | jq -r '.stdout' | tr -d '\r\n')
+if [[ "${SHELL_OUT}" != "validated /tmp" ]]; then
+  echo "ERROR: Bash state did not survive suspension (got: ${SHELL_OUT})."
+  exit 1
+fi
+echo "NOTE: Bash session survived suspend/resume: \$MARKER and cwd = ${SHELL_OUT}"
 
 # The endpoint must refuse a request with no token.
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://${ENDPOINT}/state")

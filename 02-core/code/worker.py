@@ -3,12 +3,16 @@
 #
 # SQS-triggered worker. For each query it runs a Bedrock Converse tool loop
 # whose tools execute inside this conversation's MicroVM sandbox:
-#   1. Read question.txt from S3, plus recent exchanges for context
-#   2. converse() with three tools -- run_code, get_result, show_file
+#   1. Read question.txt from S3. Build context (memory.py): recent
+#      exchanges replayed with their tool calls, plus a summary of what the
+#      conversation's sandbox holds
+#   2. converse() with four tools -- run_code (Python), run_shell (bash),
+#      get_result, show_file
 #   3. Execute each requested tool against the sandbox (sandbox.py launches it
 #      on first use), feed the results back, repeat until the model answers
-#   4. Write answer.txt + trace.json to S3, stage shown files as artifacts,
-#      mark the query complete and add the tokens to the user's usage
+#   4. Write answer.txt + trace.json + messages.json (the exchange, for
+#      replay) to S3, stage shown files as artifacts, take a fresh sandbox
+#      inventory, mark the query complete and add the tokens to the user's usage
 #
 # The loop is ours rather than a managed agent's for two reasons that are the
 # point of the demo. show_file returns the rendered PNG as an IMAGE block, so
@@ -32,9 +36,9 @@ import time
 from datetime import datetime, timezone
 
 import boto3
-from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 
+import memory
 import sandbox
 
 # ================================================================================
@@ -70,10 +74,6 @@ MODEL_ID       = os.environ["BEDROCK_MODEL_ID"]
 # model that keeps "fixing" the same error from burning the token budget.
 MAX_TURNS = 25
 
-# Prior exchanges replayed as context. Text only -- earlier images are not
-# resent, since the sandbox itself still holds the files and the variables.
-HISTORY_WINDOW = 5
-
 # How long run_code / get_result wait for a cell before handing back the job
 # id. Long enough for a pip install; short enough to leave room for more turns.
 TOOL_WAIT_SECONDS = 240
@@ -94,17 +94,28 @@ SYSTEM_PROMPT = """You are a coding agent with a private Python sandbox: a Lambd
 MicroVM (Firecracker VM, its own kernel) that belongs to this conversation.
 
 How the sandbox works:
-- run_code executes Python in ONE persistent session. Variables, functions, \
-imports and files survive between calls and between messages in this \
-conversation. The working directory is /workspace.
+- It has TWO persistent sessions that share one filesystem (working \
+directory /workspace):
+  - run_code: a Python session. Variables, functions and imports survive \
+between calls and between messages in this conversation.
+  - run_shell: a bash session. cd, exports, variables and functions survive \
+between calls the same way.
+- Use Python for computation, data and plots. Use bash for installing \
+packages, git, files and builds. A file written in one is visible in the other.
 - numpy, matplotlib (Agg backend) and pillow are installed and already loaded \
-in memory, so importing them is instant. For anything else, install it from a \
-cell: subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pkg"]). \
-The sandbox has internet access.
+in Python's memory, so importing them is instant. Install anything else from \
+run_shell: `pip3 install -q pkg` (then import it from run_code), or \
+`dnf install -y pkg`. The sandbox has internet access.
+- dnf here is microdnf: no -q, no search, no info, no provides. Use \
+`dnf repoquery` to look things up.
+- The bash session IS the session. Never put `set -e` at the top of a \
+run_shell command -- one failing command would end the shell and reset its \
+state. For fail-fast, use a subshell: `( set -e; ...; )`. Commands cannot \
+prompt (stdin is closed), so pass -y to anything that would ask.
 - The sandbox launches automatically the first time you run code. Never ask \
 the user to start it.
-- A failing cell returns its traceback and the session survives. Read the \
-error, fix the code, run it again.
+- A failing command returns its error and the sessions survive. Read the \
+error, fix it, run it again.
 
 Showing results:
 - Save figures to files with plt.savefig(...) and plt.close(); never \
@@ -115,6 +126,10 @@ asked for? Is anything floating, clipped, cropped, overlapping, or in large \
 empty space? Is all text rendered (no missing-glyph boxes)? If anything is \
 off, fix the code, save to the SAME path, and call show_file again -- that \
 replaces the earlier attachment, so the user only sees the final version.
+- Fix real defects, not taste: one correction pass is usually enough. \
+Anything cut off at the frame edge or hidden behind the title or labels IS a \
+defect -- fix it. Do not re-render repeatedly for small spacing tweaks; each \
+render costs the user time.
 - Treat warnings in cell output as bugs to fix. The fonts have no emoji: \
 keep emoji out of plot titles and labels.
 - Prefer a clean, faithful rendering of what was asked over decoration.
@@ -139,9 +154,24 @@ TOOLS = [
                                     "description": "Python source to execute."}},
             "required": ["code"]}}}},
     {"toolSpec": {
+        "name": "run_shell",
+        "description": (
+            "Run bash in the persistent sandbox shell and return its combined "
+            "stdout and stderr. cd, exports and variables persist across "
+            "calls. Shares /workspace with run_code. Use for installs (pip3, "
+            "dnf), git, file management and builds. Never start with `set -e`. "
+            "If the command is still running after a few minutes this returns "
+            "a job id instead; call get_result with it to keep waiting."),
+        "inputSchema": {"json": {
+            "type": "object",
+            "properties": {"command": {"type": "string",
+                                       "description": "Bash to execute."}},
+            "required": ["command"]}}}},
+    {"toolSpec": {
         "name": "get_result",
         "description": (
-            "Keep waiting for a cell that run_code reported as still running. "
+            "Keep waiting for a job that run_code or run_shell reported as "
+            "still running. "
             "Only needed for long cells such as big installs."),
         "inputSchema": {"json": {
             "type": "object",
@@ -223,17 +253,19 @@ def _update_query_status(user_id, conv_id, query_id, status, trace_key):
     )
 
 
-def _finalize_query(user_id, conv_id, query_id, answer_key, tokens_used, artifacts):
+def _finalize_query(user_id, conv_id, query_id, answer_key, messages_key,
+                    tokens_used, artifacts):
     table.update_item(
         Key=_query_key(user_id, conv_id, query_id),
         UpdateExpression=(
-            "SET #s = :s, answer_s3_key = :a, tokens_used = :t, "
-            "artifacts = :f, updated_at = :u"
+            "SET #s = :s, answer_s3_key = :a, messages_s3_key = :m, "
+            "tokens_used = :t, artifacts = :f, updated_at = :u"
         ),
         ExpressionAttributeNames={"#s": "status"},
         ExpressionAttributeValues={
             ":s": "complete",
             ":a": answer_key,
+            ":m": messages_key,
             ":t": tokens_used,
             ":f": artifacts,
             ":u": utc_now(),
@@ -254,9 +286,21 @@ def _fail_query(user_id, conv_id, query_id, reason):
     )
 
 
-def accumulate_tokens(user_id, input_tokens, output_tokens):
+def budget_tokens(usage):
+    """Tokens charged to the user's budget for one query.
+
+    Weighted like the bill: a cache read costs about a tenth of a normal input
+    token and a cache write about a quarter more. Counting replayed history at
+    full price would drain the budget for context the model mostly read from
+    cache.
+    """
+    return (usage["input"] + usage["output"]
+            + round(usage["cache_write"] * 1.25) + round(usage["cache_read"] * 0.1))
+
+
+def accumulate_tokens(user_id, total):
     """Add the consumed tokens to the user's lifetime usage record."""
-    total = int(input_tokens or 0) + int(output_tokens or 0)
+    total = int(total or 0)
     if total <= 0:
         return
     try:
@@ -267,33 +311,6 @@ def accumulate_tokens(user_id, input_tokens, output_tokens):
         )
     except Exception:
         logger.exception("Failed to update token usage for user_id=%s", user_id)
-
-
-def _history(user_id, conv_id, current_query_id):
-    """Return recent completed exchanges as Converse messages (text only)."""
-    items = table.query(
-        KeyConditionExpression=(
-            Key("pk").eq(f"USER#{user_id}") &
-            Key("sk").begins_with(f"QUERY#{conv_id}#")
-        )
-    ).get("Items", [])
-    done = sorted(
-        (i for i in items
-         if i.get("status") == "complete" and i.get("query_id") != current_query_id
-         and i.get("question_s3_key") and i.get("answer_s3_key")),
-        key=lambda i: i.get("created_at") or "",
-    )[-HISTORY_WINDOW:]
-
-    messages = []
-    for item in done:
-        try:
-            question = _read_s3_text(item["question_s3_key"])
-            answer = _read_s3_text(item["answer_s3_key"])
-        except Exception:
-            continue
-        messages.append({"role": "user", "content": [{"text": question}]})
-        messages.append({"role": "assistant", "content": [{"text": answer}]})
-    return messages
 
 
 # ================================================================================
@@ -356,7 +373,7 @@ class Run:
         self.session = None
         self.steps = []
         self.artifacts = []
-        self.usage = {"input": 0, "output": 0}
+        self.usage = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
 
     # --------------------------------------------------------------------------
     # Time and progress
@@ -419,7 +436,9 @@ class Run:
     def run_tool(self, name, args):
         """Execute one tool call. Returns (content_blocks, ok)."""
         if name == "run_code":
-            return self.tool_run_code(str(args.get("code") or ""))
+            return self.tool_run_code(str(args.get("code") or ""), "python")
+        if name == "run_shell":
+            return self.tool_run_code(str(args.get("command") or ""), "bash")
         if name == "get_result":
             return self.tool_get_result(str(args.get("job") or ""))
         if name == "show_file":
@@ -446,13 +465,14 @@ class Run:
         self.step(type="tool_result", text=output[:2000], ok=ok, ms=ms)
         return [{"text": note + _clip(output)}], ok
 
-    def tool_run_code(self, code):
+    def tool_run_code(self, code, kernel):
+        """run_code and run_shell: the same job flow, different session."""
         if not code.strip():
-            return [{"text": "No code given."}], False
+            return [{"text": "Nothing to run."}], False
         if len(code) > 50000:
-            return [{"text": "Cell too large (50,000 character limit)."}], False
+            return [{"text": "Too large (50,000 character limit)."}], False
         session, note = self.sandbox()
-        submitted = sandbox.submit(session, code)
+        submitted = sandbox.submit(session, code, kernel)
         if submitted.get("state") == "refused":
             text = submitted.get("error", "The sandbox refused the cell.")
             self.step(type="tool_result", text=text, ok=False)
@@ -502,22 +522,34 @@ class Run:
     # Converse loop
     # --------------------------------------------------------------------------
 
-    def converse(self, messages):
-        """Run the model/tool loop to a final answer. Returns the answer text."""
+    def converse(self, messages, history_len=0):
+        """Run the model/tool loop to a final answer. Returns the answer text.
+
+        Args:
+            messages: Replayed history followed by the new question; appended
+                to in place, so the caller can save the new exchange.
+            history_len: How many of `messages` are replayed history, which
+                places the history cache checkpoint.
+        """
         for turn in range(MAX_TURNS):
             if self.remaining_ms() < 30_000:
                 return self._stopped("ran out of time")
 
+            # The system checkpoint covers the tools and system prompt, which
+            # never change; memory.cache_points adds the history and latest-
+            # message checkpoints.
             response = bedrock.converse(
                 modelId=MODEL_ID,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=messages,
+                system=[{"text": SYSTEM_PROMPT}, memory.CACHE_POINT],
+                messages=memory.cache_points(messages, history_len),
                 toolConfig={"tools": TOOLS},
                 inferenceConfig={"maxTokens": 8192},
             )
             usage = response.get("usage") or {}
             self.usage["input"] += int(usage.get("inputTokens") or 0)
             self.usage["output"] += int(usage.get("outputTokens") or 0)
+            self.usage["cache_read"] += int(usage.get("cacheReadInputTokens") or 0)
+            self.usage["cache_write"] += int(usage.get("cacheWriteInputTokens") or 0)
 
             message = response["output"]["message"]
             messages.append(message)
@@ -579,36 +611,60 @@ def process_query(user_id, conv_id, query_id, context):
         return
 
     t0 = time.time()
-    messages = _history(user_id, conv_id, query_id)
-    messages.append({"role": "user", "content": [{"text": question}]})
+
+    # Context: earlier exchanges (with their tool calls) and what the sandbox
+    # holds. The state block goes in the question message, not the system
+    # prompt, so the cached system prefix stays identical across messages.
+    history, replayed = memory.load_history(user_id, conv_id, query_id)
+    state_text, state_summary = memory.state_block(user_id, conv_id)
+    first_turn = ([{"text": state_text}] if state_text else []) + [{"text": question}]
+    messages = history + [{"role": "user", "content": first_turn}]
+    if replayed or state_text:
+        parts = [f"{replayed} earlier message(s) replayed with their tool calls"] if replayed else []
+        if state_summary:
+            parts.append(state_summary)
+        run.step(type="context", text="Context: " + "; ".join(parts))
 
     try:
-        answer = run.converse(messages)
+        answer = run.converse(messages, history_len=len(history))
     except Exception as exc:
         logger.exception("Converse loop failed")
-        accumulate_tokens(user_id, run.usage["input"], run.usage["output"])
+        accumulate_tokens(user_id, budget_tokens(run.usage))
         _fail_query(user_id, conv_id, query_id, f"Model call failed: {exc}")
         return
 
+    # Inventory while the VM is still awake from this message's work. Only
+    # when the sandbox was used: otherwise nothing in it can have changed.
+    if run.session is not None:
+        inventory, summary = memory.capture_inventory(run.session)
+        if inventory:
+            memory.save_inventory(user_id, conv_id, run.session["id"], inventory, summary)
+
     run.steps.append({"type": "answer"})   # marks the end of the trace for the UI
+    tokens = budget_tokens(run.usage)
     logger.info(
-        "Query complete. conv=%s query=%s steps=%d files=%d elapsed=%.1fs in=%d out=%d",
-        conv_id, query_id, len(run.steps), len(run.artifacts), time.time() - t0,
-        run.usage["input"], run.usage["output"],
+        "Query complete. conv=%s query=%s steps=%d files=%d replayed=%d elapsed=%.1fs "
+        "in=%d out=%d cache_read=%d cache_write=%d budget=%d",
+        conv_id, query_id, len(run.steps), len(run.artifacts), replayed,
+        time.time() - t0, run.usage["input"], run.usage["output"],
+        run.usage["cache_read"], run.usage["cache_write"], tokens,
     )
 
     answer_key = f"{run.prefix}/answer.txt"
+    messages_key = f"{run.prefix}/messages.json"
     try:
         _write_s3_text(answer_key, answer)
         _write_s3_json(run.trace_key, run.steps)
+        _write_s3_json(messages_key,
+                       memory.sanitize_exchange(messages[len(history):], answer))
     except Exception as exc:
         logger.exception("Failed to write answer/trace to S3")
         _fail_query(user_id, conv_id, query_id, f"Failed to store result: {exc}")
         return
 
-    total_tokens = run.usage["input"] + run.usage["output"]
-    _finalize_query(user_id, conv_id, query_id, answer_key, total_tokens, run.artifacts)
-    accumulate_tokens(user_id, run.usage["input"], run.usage["output"])
+    _finalize_query(user_id, conv_id, query_id, answer_key, messages_key,
+                    tokens, run.artifacts)
+    accumulate_tokens(user_id, tokens)
 
 
 # ================================================================================

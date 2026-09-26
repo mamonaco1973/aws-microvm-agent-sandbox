@@ -1,12 +1,20 @@
 """HTTP application and lifecycle-hook listener running inside the MicroVM.
 
-The supervisor owns the session kernel (kernel.py) and speaks HTTP for it.
+The supervisor owns two persistent sessions and speaks HTTP for both:
+
+  * "python" -- kernel.py, one exec() namespace for the life of the VM
+  * "bash"   -- shell.sh, one bash process whose cwd, exports and variables
+                carry from command to command
+
+Both run in /workspace, so a file one writes the other can read. Each is its
+own process with its own job slot: a long pip install in bash does not block a
+plot in Python.
 
 Cells are submitted, not awaited. POST /execute starts a cell and returns a
 job id immediately; GET /result/<id> reports on it. The caller never holds a
 connection open for the length of the work, so a cell can outlive any HTTP
-timeout in the chain, up to the VM's own lifetime. The job lives in this
-process's memory, so it survives a suspend along with everything else.
+timeout in the chain, up to the VM's own lifetime. Jobs live in this process's
+memory, so they survive a suspend along with everything else.
 
 Two servers on two ports, deliberately:
 
@@ -48,66 +56,160 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 # Largest cell accepted. The controller enforces the same number.
 MAX_CODE_CHARS = 50000
 
+HERE = Path(__file__).resolve().parent
 
-class Session:
-    """Owns the persistent kernel subprocess and this session's identity.
+# How each session is started. Both speak the same JSON-lines protocol:
+# {"code": ...} in, {"ok", "stdout", "execution_ms"} out, after one
+# {"ready": true} line at startup.
+KERNELS = {
+    "python": [sys.executable, str(HERE / "kernel.py")],
+    "bash":   ["bash", str(HERE / "shell.sh")],
+}
 
-    The kernel runs as a separate process so a cell that hangs, segfaults or
-    calls os._exit can be killed without taking the HTTP server down with it.
-    The server survives to report the damage.
+
+class Kernel:
+    """One persistent session process and its single job slot.
+
+    The session runs as a separate process so a cell that hangs, segfaults or
+    exits can be killed without taking the HTTP server down with it. The
+    server survives to report the damage.
     """
 
-    def __init__(self, workspace):
-        """Start the kernel and wait for it to report readiness.
-
-        Args:
-            workspace: The kernel's working directory, so relative paths in
-                cells land somewhere predictable.
+    def __init__(self, name, argv, workspace):
+        """Start the session and wait for it to report readiness.
 
         Raises:
-            RuntimeError: The kernel failed to start, which must fail the
-                image build rather than snapshot a broken VM.
+            RuntimeError: It failed to start, which must fail the image build
+                rather than snapshot a broken VM.
         """
+        self.name = name
+        self.argv = argv
+        self.workspace = workspace
+        self.lock = threading.Lock()
+        self.job = None                 # the in-flight or last-finished cell
+        self.restart_note = ""          # prefixed to the next result after a restart
+        self._start()
+
+    def _start(self):
+        """Start (or restart) the session process and wait until it is ready.
+
+        Blocks until the session is up -- for Python, until numpy and
+        matplotlib are imported. At image build this is what puts them in the
+        snapshot's memory.
+        """
+        self.process = subprocess.Popen(
+            self.argv, cwd=self.workspace, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+        # A fresh queue per process: the old reader's final "exited" message
+        # must never be mistaken for the new process's first result.
+        self.responses = queue.Queue()
+        threading.Thread(target=self._read, args=(self.process, self.responses),
+                         daemon=True).start()
+        ready = self.responses.get(timeout=120)
+        if not ready.get("ready"):
+            raise RuntimeError(f"{self.name} session failed to start")
+        self.dead = False
+
+    def _read(self, process, responses):
+        """Drain one session process's protocol output onto its queue."""
+        for line in process.stdout:
+            try:
+                responses.put(json.loads(line))
+            except ValueError:
+                responses.put({"ok": False, "stdout": "Session protocol corrupted."})
+        responses.put({"ok": False, "stdout": f"The {self.name} session exited "
+                                              "during this cell; its in-memory "
+                                              "state is gone."})
+
+    def alive(self):
+        return self.process.poll() is None and not self.dead
+
+    def execute(self, code, job_id):
+        """Hand one cell to the session. Returns a job, or a refusal."""
+        with self.lock:
+            # One cell at a time per session. Refused rather than queued, and
+            # deliberately NOT answered with the running job's id: the caller
+            # would then report another cell's output as its own.
+            if self.job and self.job["state"] == "running":
+                elapsed = round(time.time() - self.job["started"])
+                return {"state": "refused",
+                        "error": f"Another {self.name} cell has been running for "
+                                 f"{elapsed}s. Each session runs one cell at a time."}
+            if not self.alive():
+                # Restart rather than refuse: the caller is a model, and a
+                # session it can keep using -- told plainly what was lost --
+                # beats a dead end that needs a human to relaunch the VM.
+                try:
+                    self._start()
+                except (OSError, RuntimeError, queue.Empty):
+                    return {"state": "refused",
+                            "error": f"The {self.name} session is dead and could "
+                                     "not be restarted."}
+                self.restart_note = (f"[The {self.name} session had exited and was "
+                                     "restarted: variables, functions and "
+                                     + ("imports" if self.name == "python" else "cd/exports")
+                                     + " are reset. Files on disk are intact.]\n")
+            self.job = {"id": job_id, "state": "running", "started": time.time()}
+            self.process.stdin.write(json.dumps({"code": code}) + "\n")
+            self.process.stdin.flush()
+
+        threading.Thread(target=self._collect, args=(job_id,), daemon=True).start()
+        return {"job": job_id, "state": "running", "kernel": self.name}
+
+    def _collect(self, job_id):
+        """Wait for one cell's result and file it against its job."""
+        responses = self.responses
+        try:
+            result = responses.get(timeout=CELL_TIMEOUT)
+        except queue.Empty:
+            self.process.kill()
+            self.process.wait(timeout=5)
+            self.dead = True
+            result = {"ok": False, "stdout": f"Cell exceeded {CELL_TIMEOUT}s; "
+                                             "session killed."}
+        with self.lock:
+            if self.restart_note:
+                result = dict(result, stdout=self.restart_note + (result.get("stdout") or ""))
+                self.restart_note = ""
+            if self.job and self.job["id"] == job_id:
+                self.job["state"] = "done"
+                self.job["result"] = result
+        if self.process.poll() is not None:
+            self.dead = True
+
+    def result(self, job_id):
+        """Report on a job, or None if this session never issued it."""
+        with self.lock:
+            job = self.job
+            if not job or job["id"] != job_id:
+                return None
+            if job["state"] == "running":
+                return {"state": "running",
+                        "elapsed_s": round(time.time() - job["started"])}
+            return {"state": "done", "result": job["result"]}
+
+
+class Session:
+    """This VM's sessions and identity."""
+
+    def __init__(self, workspace):
         self.workspace = Path(workspace).resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
-        self.kernel = subprocess.Popen(
-            [sys.executable, str(Path(__file__).with_name("kernel.py"))],
-            cwd=self.workspace, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
-        self.responses = queue.Queue()
-        threading.Thread(target=self.read_kernel, daemon=True).start()
-
-        # Blocks until numpy and matplotlib are imported. This runs during the
-        # image build, so the snapshot is taken with them already in memory.
-        self.initialization = self.responses.get(timeout=120)
-        if not self.initialization.get("ready"):
-            raise RuntimeError("Kernel initialization failed")
+        self.kernels = {name: Kernel(name, argv, self.workspace)
+                        for name, argv in KERNELS.items()}
 
         # Generated in the /run hook, after restore, so it is unique per VM.
         # Anything generated here would be shared by every clone of the image.
         self.session_nonce = None
         self.microvm_id = None
         self.events = deque(maxlen=20)
-        self.lock = threading.Lock()
-        self.job = None                 # the one in-flight or last-finished cell
-        self.dead = False
-
-    def read_kernel(self):
-        """Drain the kernel's protocol output onto the response queue."""
-        for line in self.kernel.stdout:
-            try:
-                self.responses.put(json.loads(line))
-            except ValueError:
-                self.responses.put({"ok": False, "stdout": "Kernel protocol corrupted."})
-        self.responses.put({"ok": False, "stdout": "Python kernel exited; the "
-                                                   "session state is gone."})
 
     def state(self):
         """Return this session's identity and health."""
         return {"microvm_id": self.microvm_id, "session_nonce": self.session_nonce,
-                "server_pid": os.getpid(), "kernel_pid": self.kernel.pid,
-                "events": list(self.events),
-                "kernel_alive": self.kernel.poll() is None and not self.dead}
+                "server_pid": os.getpid(), "events": list(self.events),
+                "kernels": {name: {"pid": k.process.pid, "alive": k.alive()}
+                            for name, k in self.kernels.items()}}
 
     def hook(self, name, data):
         """Handle one AWS lifecycle hook.
@@ -128,70 +230,31 @@ class Session:
         self.events.append({"hook": name, "wall_time": time.time()})
         return {"ok": True}
 
-    def execute(self, code):
-        """Hand one cell to the kernel and return its job id.
+    def execute(self, code, kernel="python"):
+        """Start a cell in the named session and return its job id.
 
         Raises:
-            ValueError: The payload is not a string of acceptable length.
+            ValueError: Unknown session, or code of the wrong type or size.
         """
+        if kernel not in self.kernels:
+            raise ValueError(f"Unknown kernel {kernel!r}; use one of {sorted(self.kernels)}")
         if not isinstance(code, str) or len(code) > MAX_CODE_CHARS:
             raise ValueError(f"Code must be a string of at most {MAX_CODE_CHARS} characters")
-
-        with self.lock:
-            # One kernel, so one cell at a time. Refused rather than queued,
-            # and deliberately NOT answered with the running job's id: the
-            # caller would then report another cell's output as its own.
-            if self.job and self.job["state"] == "running":
-                elapsed = round(time.time() - self.job["started"])
-                return {"state": "refused",
-                        "error": f"Another cell has been running for {elapsed}s. "
-                                 "One kernel runs one cell at a time."}
-            if self.dead or self.kernel.poll() is not None:
-                return {"state": "refused",
-                        "error": "The Python kernel is dead; the session must "
-                                 "be relaunched."}
-
-            job_id = uuid.uuid4().hex[:8]
-            self.job = {"id": job_id, "state": "running", "started": time.time()}
-            self.kernel.stdin.write(json.dumps({"code": code}) + "\n")
-            self.kernel.stdin.flush()
-
-        threading.Thread(target=self.collect, args=(job_id,), daemon=True).start()
-        return {"job": job_id, "state": "running"}
-
-    def collect(self, job_id):
-        """Wait for one cell's result and file it against its job."""
-        try:
-            result = self.responses.get(timeout=CELL_TIMEOUT)
-        except queue.Empty:
-            self.kernel.kill()
-            self.kernel.wait(timeout=5)
-            self.dead = True
-            result = {"ok": False, "stdout": f"Cell exceeded {CELL_TIMEOUT}s; "
-                                             "kernel killed."}
-        with self.lock:
-            if self.job and self.job["id"] == job_id:
-                self.job["state"] = "done"
-                self.job["result"] = result
-        if self.kernel.poll() is not None:
-            self.dead = True
+        return self.kernels[kernel].execute(code, uuid.uuid4().hex[:8])
 
     def result(self, job_id):
-        """Report on a submitted cell.
+        """Report on a job from either session.
 
         Returns:
             {"state": "running", "elapsed_s": n}, {"state": "done", "result":
             {...}}, or {"state": "unknown"} for an id this VM never issued --
             after a relaunch an old id is stale, not an error.
         """
-        with self.lock:
-            job = self.job
-            if not job or job["id"] != job_id:
-                return {"state": "unknown"}
-            if job["state"] == "running":
-                return {"state": "running",
-                        "elapsed_s": round(time.time() - job["started"])}
-            return {"state": "done", "result": job["result"]}
+        for kernel in self.kernels.values():
+            found = kernel.result(job_id)
+            if found is not None:
+                return found
+        return {"state": "unknown"}
 
 
 def handler(session, hooks=False):
@@ -231,8 +294,8 @@ def handler(session, hooks=False):
 
             Unrestricted as to path on purpose: a cell can already read
             anything this process can, so a traversal guard would prevent
-            nothing. Relative paths resolve against the kernel's workspace,
-            which is where a cell's relative writes land.
+            nothing. Relative paths resolve against the shared workspace,
+            which is where both sessions' relative writes land.
             """
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             path = (query.get("path") or [""])[0]
@@ -268,7 +331,8 @@ def handler(session, hooks=False):
                 if hooks and self.path.startswith(HOOK):
                     self.send_json(session.hook(self.path[len(HOOK):], data))
                 elif not hooks and self.path == "/execute":
-                    self.send_json(session.execute(data["code"]))
+                    self.send_json(session.execute(data["code"],
+                                                   data.get("kernel", "python")))
                 else:
                     self.send_json({"error": "Not found"}, 404)
             except (ValueError, KeyError, TypeError) as exc:

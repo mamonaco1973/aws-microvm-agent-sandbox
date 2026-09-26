@@ -19,7 +19,7 @@ this repo.
 
 ## Architecture
 
-    01-sandbox/          MicroVM image: Terraform + image/ (Dockerfile, server.py, kernel.py)
+    01-sandbox/          MicroVM image: Terraform + image/ (Dockerfile, server.py, kernel.py, shell.sh)
     02-core/             Backend Terraform + code/ (handler, conversations, users, worker, sandbox)
     03-webapp/           Vanilla-JS SPA, uploaded by apply.sh (no Terraform)
 
@@ -41,7 +41,7 @@ this repo.
 - **The model must see its own image.** `show_file` returns the PNG as an
   image block, so the model can catch a bad render. Bedrock Agents action
   groups return text only.
-- **The worker waits, not the model.** `run_code` blocks in the worker (up to
+- **The worker waits, not the model.** `run_code`/`run_shell` block in the worker (up to
   4 minutes, then it hands back a job id for `get_result`). The model never
   has to poll from inside its own reasoning.
 
@@ -50,8 +50,37 @@ this repo.
 - `server.py` is the stdlib supervisor. It serves `/execute` (returns a job
   id), `/result/<id>`, `/file?path=` and `/state` on 8080, and the lifecycle
   hooks on 8081. Endpoint tokens are scoped to 8080.
+- `server.py` runs two sessions, each a `Kernel` with its own process and
+  job slot, so a long install in bash never blocks a plot in Python.
+  `/execute` takes `{"code", "kernel": "python"|"bash"}`.
 - `kernel.py` is the persistent Python session: one `exec` namespace for the
-  whole life of the VM.
+  whole life of the VM (the `run_code` tool).
+- `shell.sh` is the persistent bash session, adapted from aws-lambda-microvms'
+  `worker.sh` (the `run_shell` tool). Both sessions start in `/workspace`.
+- A dead session (bash `set -e` failure, `builtin exit`, Python `os._exit`)
+  is **restarted on its next command**, and that command's output starts
+  with a note saying what was reset. The caller is a model; a usable session
+  with an honest note beats a dead end that needs a human to relaunch.
+
+### Context between messages (02-core/code/memory.py)
+
+- **History:** each message's full Converse exchange is saved as
+  `messages.json` (images replaced by placeholders, results clipped to 4K,
+  the `<sandbox_state>` block dropped) and replayed newest-first, up to 5
+  exchanges or 60K characters. Older rows without `messages.json` fall back
+  to question + answer text.
+- **Sandbox inventory:** after a message that used the sandbox, two read-only
+  cells (Python namespace; bash cwd, functions, added exports, files) run
+  while the VM is awake. The result is stored on the CONV# item, tagged with
+  the VM id. The next message gets it as a `<sandbox_state>` block ahead of
+  the question. `state_block()` only calls GetMicrovm, so it never wakes a
+  suspended VM, and it reports an expired sandbox as gone.
+- **Caching:** checkpoints after the system prompt, after the replayed
+  history, and on the latest message. The budget counts cache reads at 0.1x
+  and cache writes at 1.25x (`worker.budget_tokens`).
+- The inventory cells must leave nothing behind: Python names start with `_`
+  and are deleted; bash pipelines run in subshells. Values of exports and
+  strings are never captured, because they may be secrets.
 
 ## Rules That Are Load-Bearing
 
@@ -62,6 +91,15 @@ this repo.
   Never print to real stdout in `kernel.py`.
 - **Catch `BaseException` around a cell.** `exit()` inside a cell must fail
   that cell, not end the session.
+- **Never add `set -euo pipefail` to `shell.sh`.** Commands run in the session
+  shell itself, so `-e` would end the session on the first failing command.
+  The same goes for commands the model sends; the system prompt says so.
+- **`eval` runs in the session shell, never a subshell,** and `</dev/null` on
+  that line is load-bearing: stdin is the protocol channel, so a command
+  running `read` or `cat` would otherwise swallow the next request.
+- **`exit` is shadowed by a function in `shell.sh`.** Models write `exit 1` out
+  of habit; the guard turns it into a failed command. It returns rather than
+  stopping the rest of the line, which is acceptable.
 - **numpy and matplotlib are imported before readiness is reported**, so they
   sit in the snapshot's memory. Moving those imports after the ready line
   makes every first plot cold. Anything imported there is paid for once, at

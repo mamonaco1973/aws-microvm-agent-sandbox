@@ -23,10 +23,18 @@ Bedrock tool loop you can read end to end.
 2. **Launch on demand.** Creating a chat launches nothing. The VM starts the
    first time the agent runs code. Launching restores a snapshot with Python,
    numpy and matplotlib already loaded in memory, so it takes seconds.
-3. **State that survives.** Variables, imports and files persist between
-   messages. After 30 idle minutes the VM suspends and costs nothing for
-   compute. The next message wakes it with the Python session intact.
-4. **An agent that checks its work.** `show_file` sends the rendered PNG back
+3. **State that survives.** The VM runs two persistent sessions, Python and
+   bash, over one shared filesystem. Variables, imports, the shell's `cd` and
+   exports, and files all persist between messages. After 30 idle minutes
+   the VM suspends and costs nothing for compute. The next message wakes it
+   with both sessions intact.
+4. **Context that carries over.** Each new message replays the earlier ones
+   *with their tool calls*, so the agent remembers what it ran and what went
+   wrong, not just what it said. It also gets an inventory of the sandbox
+   (files, Python functions and data, the shell's `cwd`) taken when the last
+   message finished, so it reuses what's there instead of rebuilding it.
+   Bedrock prompt caching makes the replay cheap.
+5. **An agent that checks its work.** `show_file` sends the rendered PNG back
    to the model as an image. The model reviews what it drew and re-renders if
    something is off.
 
@@ -42,23 +50,27 @@ Browser (SPA) ── POST /conversations/{id}/queries ──► API Lambda ─�
                                               Claude on Bedrock    MicroVM sandbox
                                                                    (one per conversation)
                                                                    supervisor :8080 / hooks :8081
-                                                                   persistent Python kernel
+                                                                   persistent Python + bash sessions
 ```
 
 **The tool loop** (`02-core/code/worker.py`) calls Bedrock **Converse** with
-three tools and runs each tool the model asks for:
+four tools and runs each tool the model asks for:
 
 | Tool | What it does |
 |---|---|
 | `run_code(code)` | Runs Python in the conversation's persistent session and returns the output. The worker waits for the cell, so the model never polls. |
-| `get_result(job)` | Keeps waiting on a cell that is still running after 4 minutes (for example, a big `pip install`). |
+| `run_shell(command)` | Runs bash in the conversation's persistent shell: `cd`, exports and variables carry over between calls. The model uses it for installs (`pip3`, `dnf`), git, files and builds. |
+| `get_result(job)` | Keeps waiting on a job that is still running after 4 minutes (for example, a big install). |
 | `show_file(path)` | Fetches a file from the VM and stages it in S3 as an attachment on the answer. An image is also returned to the model so it can check it. Showing the same path again replaces the attachment. |
 
 **The sandbox** (`01-sandbox/image/`) is a MicroVM image built remotely by
 Lambda from a Dockerfile, so you need no Docker or ECR. A stdlib HTTP
 supervisor accepts cells as jobs: `POST /execute` returns a job id and
-`GET /result/<id>` returns the output. The cells run in a persistent Python
-kernel that imported numpy and matplotlib *before* the snapshot was taken.
+`GET /result/<id>` returns the output. Jobs run in one of two persistent
+sessions that share `/workspace`: a Python kernel that imported numpy and
+matplotlib *before* the snapshot was taken, and a bash shell. A session that
+dies (a `set -e` failure, `os._exit()`) restarts itself on the next command,
+and the output says what was reset.
 
 **Security boundary:** the VM. The sandbox's IAM role has **no policies**, so
 code the model writes can reach the internet (for `pip`) but cannot call a
@@ -104,8 +116,11 @@ Sign in, then click a starter or type:
 3. Leave it for 30 minutes and ask again. The trace shows *Resuming suspended
    MicroVM… with its Python state intact*.
 4. **"Install pandas in the sandbox, then chart some made-up sales data"**:
-   `pip` over the internet egress, from inside the VM.
-5. **"What is your sandbox?"**: the agent inspects its own OS, kernel, CPU
+   `pip3 install` in bash, then the chart in Python, in the same VM.
+5. **"Install git, clone https://github.com/mamonaco1973/aws-lambda-microvms
+   and count its lines of Python and Terraform"**: a shell-driven task. The
+   trace shows `dnf install`, `git clone`, and a `cd` that carries over.
+6. **"What is your sandbox?"**: the agent inspects its own OS, kernel, CPU
    and memory.
 
 Deleting a conversation terminates its VM.
@@ -131,7 +146,7 @@ lifetime cap and the per-user token budget (1M tokens, `TOKEN_LIMIT_DEFAULT` in
 
 ```
 01-sandbox/          MicroVM image (Terraform + image source)
-  image/             Dockerfile, server.py (supervisor), kernel.py (Python session)
+  image/             Dockerfile, server.py (supervisor), kernel.py (Python), shell.sh (bash)
 02-core/             Backend Terraform + Lambda code
   code/              handler / conversations / users / worker / sandbox
 03-webapp/           Vanilla-JS SPA (chat, live progress, trace, inline images)
