@@ -40,18 +40,13 @@ Bedrock tool loop you can read end to end.
 
 ## Architecture
 
-```
-Browser (SPA) ── POST /conversations/{id}/queries ──► API Lambda ──► SQS
-      ▲                                                               │
-      │ poll every 2s (live progress + final answer, trace, files)    ▼
-      └──────────── DynamoDB / S3 ◄──────────────────────── Worker Lambda
-                                                           Converse tool loop
-                                                             │        │
-                                              Claude on Bedrock    MicroVM sandbox
-                                                                   (one per conversation)
-                                                                   supervisor :8080 / hooks :8081
-                                                                   persistent Python + bash sessions
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="architecture-dark.svg">
+  <img alt="A web app calls an API that writes each question to DynamoDB and S3 and enqueues it on SQS; a worker Lambda runs the Converse tool loop, calling Claude on Bedrock and running code in a per-conversation Lambda MicroVM, and writes results back to DynamoDB and S3, which the web app polls" src="architecture-light.svg">
+</picture>
+
+Only CloudFront and the frontend bucket are left out; Cognito is the label on
+the browser's hop. Regenerate with `python make_diagram.py`.
 
 **The tool loop** (`02-core/code/worker.py`) calls Bedrock **Converse** with
 four tools and runs each tool the model asks for:

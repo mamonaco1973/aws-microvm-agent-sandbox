@@ -142,7 +142,14 @@ def create_conversation(event):
         "updated_at": now,
     })
 
-    return json_response(200, {"conv_id": conv_id, "title": "New conversation"})
+    # Same shape as a list_conversations entry: the sidebar groups chats by
+    # updated_at, and a new chat without one was filed under "Older".
+    return json_response(200, {
+        "conv_id":    conv_id,
+        "title":      "New conversation",
+        "created_at": now,
+        "updated_at": now,
+    })
 
 
 # --------------------------------------------------------------------------------
